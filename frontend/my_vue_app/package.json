@@ -1,0 +1,21 @@
+{
+  "name": "my_vue_app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.3.8",
+    "vue-router": "^4.2.5",
+    "axios": "^1.6.2"  
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "vite": "^4.5.0"
+  },
+  "description": "基于知识图谱的网络安全学习平台",
+  "keywords": ["vue", "cybersecurity", "knowledge-graph", "learning-platform"]
+}

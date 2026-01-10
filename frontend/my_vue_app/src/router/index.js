@@ -1,0 +1,129 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import HomeView from '../views/HomeView.vue'
+import DashboardView from '../views/DashboardView.vue'
+import LearnView from '../views/LearnView.vue'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import LearningPathView from '../views/LearningPathView.vue'
+import AdminHomeView from '../views/AdminHomeView.vue'
+import AdminProfileView from '../views/AdminProfileView.vue'
+import AdminKnowledgeView from '../views/AdminKnowledgeView.vue'
+import AdminSystemView from '../views/AdminSystemView.vue'
+
+// 简单的认证判断：检查本地是否有 token
+function isAuthenticated() {
+  return !!localStorage.getItem('token')
+}
+
+// 判断是否管理员
+function isAdmin() {
+  try {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) return false
+    const user = JSON.parse(userStr)
+    return !!user.is_admin
+  } catch {
+    return false
+  }
+}
+
+const routes = [
+  {
+    path: '/',
+    name: 'Home',
+    component: HomeView
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: LoginView,
+    meta: { guestOnly: true }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: RegisterView,
+    meta: { guestOnly: true }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: DashboardView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/learn',
+    name: 'Learn',
+    component: LearnView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: ProfileView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/learning-path',
+    name: 'LearningPath',
+    component: LearningPathView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin',
+    name: 'AdminHome',
+    component: AdminHomeView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/profile',
+    name: 'AdminProfile',
+    component: AdminProfileView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/knowledge',
+    name: 'AdminKnowledge',
+    component: AdminKnowledgeView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/system',
+    name: 'AdminSystem',
+    component: AdminSystemView,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+// 全局前置守卫：处理登录态和跳转
+router.beforeEach((to, from, next) => {
+  const authed = isAuthenticated()
+
+  // 已登录用户访问登录/注册页，根据角色跳转到不同页面
+  if (to.meta.guestOnly && authed) {
+    return next(isAdmin() ? { name: 'AdminHome' } : { name: 'Dashboard' })
+  }
+
+  // 访问需要登录的页面但未登录，跳转到登录页
+  if (to.meta.requiresAuth && !authed) {
+    return next({
+      name: 'Login',
+      query: { redirect: to.fullPath }
+    })
+  }
+
+  // 访问管理员页面但不是管理员
+  if (to.meta.requiresAdmin && !isAdmin()) {
+    return next({ name: 'Dashboard' })
+  }
+
+  next()
+})
+
+export default router
