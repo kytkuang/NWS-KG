@@ -7,260 +7,101 @@
       </div>
     </header>
 
-    <main class="content">
-      <section class="panel panel-left">
-        <header class="panel-header">
-          <div class="search-row">
-            <input
-              v-model.trim="query"
-              class="search-input"
-              type="text"
-              placeholder="搜索知识点名称..."
-            />
-            <button class="btn small" @click="loadNodes">搜索</button>
-            <button class="btn small ghost" @click="resetSearch">重置</button>
-          </div>
-          <button class="btn primary small" @click="startCreate">新增知识点</button>
-        </header>
+    <!-- 顶部导航栏 -->
+    <nav class="top-nav">
+      <ul class="nav-list">
+        <li>
+          <button 
+            class="nav-item" 
+            :class="{ active: activeNav === 'knowledge-graph' }"
+            @click="switchNav('knowledge-graph')"
+          >
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.553 2.776A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+            </svg>
+            <span>知识图谱</span>
+          </button>
+        </li>
+        <li>
+          <button 
+            class="nav-item" 
+            :class="{ active: activeNav === 'add-content' }"
+            @click="switchNav('add-content')"
+          >
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>添加内容</span>
+          </button>
+        </li>
+        <li>
+          <button 
+            class="nav-item" 
+            :class="{ active: activeNav === 'learning-stats' }"
+            @click="switchNav('learning-stats')"
+          >
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span>学习统计</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
 
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>名称</th>
-                <th>类别</th>
-                <th>来源</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in nodes" :key="item.id" :class="{ active: item.id === currentId }">
-                <td>{{ item.id }}</td>
-                <td>{{ item.name }}</td>
-                <td>{{ item.category }}</td>
-                <td>{{ item.source }}</td>
-                <td>
-                  <button class="link-btn" @click="selectNode(item)">编辑</button>
-                  <button class="link-btn danger" @click="removeNode(item)">删除</button>
-                </td>
-              </tr>
-              <tr v-if="!nodes.length">
-                <td colspan="5" class="empty-cell">暂无数据</td>
-              </tr>
-            </tbody>
-          </table>
+    <main class="content">
+      <!-- 知识图谱页面 -->
+      <section v-if="activeNav === 'knowledge-graph'" class="knowledge-graph-view">
+        <!-- 调用AdminKnowledgeGraph组件 -->
+        <AdminKnowledgeGraph />
+      </section>
+
+      <!-- 添加内容页面 -->
+      <section v-else-if="activeNav === 'add-content'" class="empty-view">
+        <div class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"/>
+          </svg>
+          <h2>添加内容</h2>
+          <p>该功能正在开发中，敬请期待</p>
         </div>
       </section>
 
-      <section class="panel panel-right">
-        <header class="panel-header">
-          <h2>{{ editingMode === 'create' ? '新增知识点' : '编辑知识点' }}</h2>
-        </header>
-
-        <div v-if="form" class="form-wrapper">
-          <div class="form-group">
-            <label>名称</label>
-            <input v-model.trim="form.name" type="text" placeholder="请输入知识点名称" />
-          </div>
-
-          <div class="form-group">
-            <label>类别</label>
-            <input v-model.trim="form.category" type="text" placeholder="如 tactic / technique / concept ..." />
-          </div>
-
-          <div class="form-group">
-            <label>来源</label>
-            <input v-model.trim="form.source" type="text" placeholder="如 mitre / custom ..." />
-          </div>
-
-          <div class="form-group">
-            <label>Neo4j 业务 ID（可选）</label>
-            <input v-model.trim="form.neo4j_id" type="text" placeholder="用于与图数据库节点对齐" />
-          </div>
-
-          <div class="form-group">
-            <label>描述</label>
-            <textarea
-              v-model="form.description"
-              rows="4"
-              placeholder="补充对该知识点的说明，如用途、示例等"
-            ></textarea>
-          </div>
-
-          <p v-if="error" class="error-text">{{ error }}</p>
-          <p v-if="success" class="success-text">{{ success }}</p>
-
-          <div class="form-actions">
-            <button class="btn primary" @click="saveNode" :disabled="loading">
-              {{ loading ? '保存中...' : '保存' }}
-            </button>
-            <button class="btn ghost" @click="startCreate">新增空白</button>
-          </div>
+      <!-- 学习统计页面 -->
+      <section v-else-if="activeNav === 'learning-stats'" class="empty-view">
+        <div class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <h2>学习统计</h2>
+          <p>该功能正在开发中，敬请期待</p>
         </div>
-        <p v-else class="empty-cell">请选择左侧知识点或点击“新增知识点”。</p>
       </section>
     </main>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
-
-const API_BASE_URL = '/api/knowledge'
+import { ref } from 'vue'
+// 导入AdminKnowledgeGraph组件
+import AdminKnowledgeGraph from '../components/Graph/AdminKnowledgeGraph.vue'
 
 export default {
   name: 'AdminKnowledgeView',
+  components: {
+    AdminKnowledgeGraph
+  },
   setup() {
-    const nodes = ref([])
-    const query = ref('')
-    const currentId = ref(null)
-    const form = ref(null)
-    const editingMode = ref('create') // create | update
-    const loading = ref(false)
-    const error = ref('')
-    const success = ref('')
+    const activeNav = ref('knowledge-graph') // 默认显示知识图谱页面
 
-    const authHeaders = () => {
-      const token = localStorage.getItem('token')
-      return {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
+    // 切换导航
+    const switchNav = (nav) => {
+      activeNav.value = nav
     }
-
-    const loadNodes = async () => {
-      error.value = ''
-      try {
-        const params = new URLSearchParams()
-        if (query.value) params.append('q', query.value)
-        const res = await fetch(`${API_BASE_URL}/nodes?${params.toString()}`, {
-          headers: authHeaders()
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || '加载知识点失败')
-        }
-        nodes.value = data.items || []
-      } catch (e) {
-        error.value = e.message || '加载知识点失败'
-      }
-    }
-
-    const resetSearch = () => {
-      query.value = ''
-      loadNodes()
-    }
-
-    const startCreate = () => {
-      editingMode.value = 'create'
-      currentId.value = null
-      error.value = ''
-      success.value = ''
-      form.value = {
-        name: '',
-        category: 'concept',
-        source: 'custom',
-        neo4j_id: '',
-        description: ''
-      }
-    }
-
-    const selectNode = (item) => {
-      editingMode.value = 'update'
-      currentId.value = item.id
-      error.value = ''
-      success.value = ''
-      form.value = {
-        name: item.name,
-        category: item.category,
-        source: item.source,
-        neo4j_id: item.neo4j_id || '',
-        description: item.description || ''
-      }
-    }
-
-    const saveNode = async () => {
-      if (!form.value || !form.value.name) {
-        error.value = '名称不能为空'
-        return
-      }
-      error.value = ''
-      success.value = ''
-      loading.value = true
-      try {
-        const payload = { ...form.value }
-        const url =
-          editingMode.value === 'update' && currentId.value
-            ? `${API_BASE_URL}/nodes/${currentId.value}`
-            : `${API_BASE_URL}/nodes`
-        const method = editingMode.value === 'update' ? 'PUT' : 'POST'
-
-        const res = await fetch(url, {
-          method,
-          headers: authHeaders(),
-          body: JSON.stringify(payload)
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || '保存失败')
-        }
-        success.value = '保存成功'
-        await loadNodes()
-        if (data.item) {
-          currentId.value = data.item.id
-          editingMode.value = 'update'
-        }
-      } catch (e) {
-        error.value = e.message || '保存失败'
-      } finally {
-        loading.value = false
-      }
-    }
-
-    const removeNode = async (item) => {
-      if (!window.confirm(`确定要删除知识点「${item.name}」及其关系吗？`)) return
-      error.value = ''
-      success.value = ''
-      try {
-        const res = await fetch(`${API_BASE_URL}/nodes/${item.id}`, {
-          method: 'DELETE',
-          headers: authHeaders()
-        })
-        const data = await res.json()
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || '删除失败')
-        }
-        if (currentId.value === item.id) {
-          form.value = null
-          currentId.value = null
-        }
-        await loadNodes()
-      } catch (e) {
-        error.value = e.message || '删除失败'
-      }
-    }
-
-    onMounted(() => {
-      loadNodes()
-      startCreate()
-    })
 
     return {
-      nodes,
-      query,
-      currentId,
-      form,
-      editingMode,
-      loading,
-      error,
-      success,
-      loadNodes,
-      resetSearch,
-      startCreate,
-      selectNode,
-      saveNode,
-      removeNode
+      activeNav,
+      switchNav
     }
   }
 }
@@ -283,179 +124,102 @@ export default {
   color: #6b7280;
 }
 
-.content {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 16px;
-}
-
-.panel {
+/* 顶部导航栏样式 */
+.top-nav {
+  margin-top: 20px;
+  margin-bottom: 20px;
   background-color: #ffffff;
   border-radius: 8px;
-  padding: 16px 14px;
+  padding: 8px 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
-  display: flex;
-  flex-direction: column;
 }
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.search-row {
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   gap: 8px;
-  align-items: center;
 }
 
-.search-input {
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid #d1d5db;
-  font-size: 13px;
-  min-width: 180px;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-
-.btn {
-  border: none;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.btn.small {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.btn.primary {
-  background-color: #007bff;
-  color: #ffffff;
-}
-
-.btn.primary:hover {
-  background-color: #0056b3;
-}
-
-.btn.ghost {
-  background-color: #ffffff;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn.ghost:hover {
-  background-color: #f9fafb;
-  transform: translateY(-1px);
-}
-
-.table-wrapper {
-  margin-top: 8px;
-  overflow: auto;
-  max-height: 420px;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.data-table thead {
-  background-color: #f3f4f6;
-}
-
-.data-table th,
-.data-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: left;
-}
-
-.data-table tr.active {
-  background-color: #eff6ff;
-}
-
-.empty-cell {
-  text-align: center;
-  color: #9ca3af;
-  padding: 18px 0;
-}
-
-.link-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  color: #2563eb;
-  font-size: 12px;
-  cursor: pointer;
-  margin-right: 8px;
-}
-
-.link-btn.danger {
-  color: #dc2626;
-}
-
-.form-wrapper {
-  margin-top: 4px;
-}
-
-.form-group {
-  margin-bottom: 10px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  color: #4b5563;
-  margin-bottom: 4px;
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid #d1d5db;
-  font-size: 13px;
-  outline: none;
-  resize: vertical;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-
-.form-actions {
-  margin-top: 10px;
+.nav-item {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.error-text {
-  font-size: 12px;
-  color: #dc2626;
-  margin-top: 4px;
+.nav-item:hover {
+  background-color: #f9fafb;
+  color: #374151;
 }
 
-.success-text {
-  font-size: 12px;
-  color: #16a34a;
-  margin-top: 4px;
+.nav-item.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* 主内容区域 */
+.content {
+  margin-top: 0;
+}
+
+/* 知识图谱页面样式 */
+.knowledge-graph-view {
+  height: calc(100vh - 180px);
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+/* 空页面样式 */
+.empty-view {
+  height: calc(100vh - 180px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+}
+
+.empty-state {
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  color: #d1d5db;
+}
+
+.empty-state h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.empty-state p {
+  font-size: 14px;
 }
 </style>
-
