@@ -13,12 +13,21 @@
       <div class="left-panel">
         <div class="control-section">
           <h3>视图控制</h3>
-          <div class="control-group">
-            <label>布局类型</label>
-            <select v-model="layoutType" class="select-input">
-              <option value="circular">智能布局（战术-技术关系优化）</option>
-              <option value="grid">网格布局</option>
-            </select>
+          
+          <!-- 聚焦模式控制 -->
+          <div class="control-group" v-if="focusMode">
+            <label>关联深度</label>
+            <div class="depth-control">
+              <button 
+                v-for="depth in [2, 3, 4]" 
+                :key="depth"
+                @click="setFocusDepth(depth)"
+                class="depth-btn"
+                :class="{ active: focusDepth === depth }"
+              >
+                {{ getDepthLabel(depth) }}
+              </button>
+            </div>
           </div>
           
           <div class="control-buttons">
@@ -27,6 +36,21 @@
             </button>
             <button @click="autoLayout" class="btn btn-primary">
               自动布局
+            </button>
+            <!-- 聚焦/退出聚焦按钮 -->
+            <button 
+              v-if="selectedNode && !focusMode"
+              @click="enterFocusMode"
+              class="btn btn-primary"
+            >
+              聚焦模式
+            </button>
+            <button 
+              v-else-if="focusMode"
+              @click="exitFocusMode"
+              class="btn btn-secondary"
+            >
+              退出聚焦
             </button>
           </div>
         </div>
@@ -69,11 +93,29 @@
               暂无图谱数据
             </div>
             <div v-else class="ready-indicator">
-              已加载 {{ nodes.length }} 个节点和 {{ edges.length }} 条关系
+              <template v-if="focusMode">
+                聚焦模式: 显示 {{ visibleNodes.length }}/{{ nodes.length }} 个节点，{{ visibleEdges.length }}/{{ edges.length }} 条边
+                <span class="focus-indicator">
+                  {{ getFocusDepthText() }}
+                </span>
+              </template>
+              <template v-else>
+                已加载 {{ nodes.length }} 个节点和 {{ edges.length }} 条关系
+              </template>
             </div>
           </div>
           
           <div class="view-controls">
+            <!-- 删除按钮（聚焦模式下显示） -->
+            <button 
+              v-if="focusMode && selectedNode" 
+              @click="deleteSelectedNode"
+              class="btn-small btn-danger"
+              title="删除选中节点"
+            >
+              删除节点
+            </button>
+            
             <div class="zoom-controls">
               <button @click="zoomOut" class="zoom-btn" title="缩小">
                 <span class="icon">−</span>
@@ -107,22 +149,9 @@
             @wheel="handleWheel"
             :class="{ dragging: isDragging }"
           >
-            <!-- 关系连接线 -->
+            <!-- 关系连接线 - 改为直线 -->
             <svg class="edges-layer" :width="canvasWidth" :height="canvasHeight">
-              <defs>
-                <marker 
-                  id="arrowhead" 
-                  markerWidth="10" 
-                  markerHeight="7" 
-                  refX="9" 
-                  refY="3.5" 
-                  orient="auto"
-                >
-                  <polygon points="0 0, 10 3.5, 0 7" fill="#666" opacity="0.7" />
-                </marker>
-              </defs>
-              
-              <g v-for="edge in edges" :key="edge.id">
+              <g v-for="edge in visibleEdges" :key="edge.id">
                 <line
                   :x1="getNodePosition(edge.source).x"
                   :y1="getNodePosition(edge.source).y"
@@ -130,19 +159,29 @@
                   :y2="getNodePosition(edge.target).y"
                   :stroke="getEdgeColor(edge.type)"
                   stroke-width="2"
-                  :marker-end="'url(#arrowhead)'"
                   :opacity="getEdgeOpacity(edge)"
                   class="edge-line"
                   @mouseenter="hoverEdge = edge"
                   @mouseleave="hoverEdge = null"
                 />
                 
+                <!-- 边标签（可显示） -->
+                <text
+                  v-if="showEdgeLabels && edge.label"
+                  :x="(getNodePosition(edge.source).x + getNodePosition(edge.target).x) / 2"
+                  :y="(getNodePosition(edge.source).y + getNodePosition(edge.target).y) / 2"
+                  text-anchor="middle"
+                  dy="3"
+                  class="edge-label"
+                >
+                  {{ edge.label }}
+                </text>
               </g>
             </svg>
 
             <!-- 节点 -->
             <div
-              v-for="node in nodes"
+              v-for="node in visibleNodes"
               :key="node.id"
               class="knowledge-node"
               :style="getNodeStyle(node)"
@@ -154,7 +193,11 @@
                 selected: selectedNode?.id === node.id,
                 hovered: hoverNode?.id === node.id,
                 dragging: draggedNode?.id === node.id,
-                highlighted: highlightedType === node.type
+                highlighted: highlightedType === node.type,
+                'focus-root': focusMode && focusRootNodes.some(n => n.id === node.id),
+                'focus-level-1': focusMode && !focusRootNodes.some(n => n.id === node.id) && focusNodeLevels[node.id] === 1,
+                'focus-level-2': focusMode && !focusRootNodes.some(n => n.id === node.id) && focusNodeLevels[node.id] === 2,
+                'focus-level-3': focusMode && !focusRootNodes.some(n => n.id === node.id) && focusNodeLevels[node.id] === 3
               }"
               :title="getNodeTooltip(node)"
             >
@@ -188,7 +231,8 @@
       <div class="right-panel">
         <div class="details-panel">
           <div class="panel-header">
-            <h3>节点详情</h3>
+            <h3 v-if="focusMode">聚焦模式</h3>
+            <h3 v-else>节点详情</h3>
             <div class="panel-actions">
               <button @click="clearSelection" class="icon-btn" title="清除选择">
                 清除
@@ -197,6 +241,37 @@
           </div>
           
           <div class="panel-content">
+            <!-- 聚焦模式说明 -->
+            <div v-if="focusMode && selectedNode" class="focus-info">
+              <div class="focus-header">
+                <div class="focus-title">
+                  <h4>聚焦模式</h4>
+                  <p class="focus-description">
+                    {{ getFocusDepthDescription() }}
+                  </p>
+                </div>
+              </div>
+              
+              <div class="depth-info">
+                <div class="depth-stat">
+                  <span class="stat-label">根节点</span>
+                  <span class="stat-value">1</span>
+                </div>
+                <div class="depth-stat">
+                  <span class="stat-label">一级关联节点</span>
+                  <span class="stat-value">{{ getLevelNodeCount(1) }}</span>
+                </div>
+                <div class="depth-stat">
+                  <span class="stat-label">二级关联节点</span>
+                  <span class="stat-value">{{ getLevelNodeCount(2) }}</span>
+                </div>
+                <div v-if="focusDepth >= 4" class="depth-stat">
+                  <span class="stat-label">三级关联节点</span>
+                  <span class="stat-value">{{ getLevelNodeCount(3) }}</span>
+                </div>
+              </div>
+            </div>
+            
             <!-- 选中节点信息 -->
             <div v-if="selectedNode" class="selected-node-info">
               <div class="node-header">
@@ -207,6 +282,7 @@
                   <h4>{{ selectedNode.label || selectedNode.id }}</h4>
                   <div class="node-meta">
                     <span class="type-tag">{{ selectedNode.type }}</span>
+                    <span v-if="focusMode" class="focus-tag">聚焦中</span>
                   </div>
                 </div>
               </div>
@@ -252,6 +328,9 @@
                       <div class="connection-target">
                         {{ conn.target.label || conn.target.id }}
                       </div>
+                      <div class="connection-meta">
+                        {{ conn.edge.type || '关联' }}
+                      </div>
                     </div>
                     <div class="connection-type-tag">{{ conn.target.type }}</div>
                   </div>
@@ -261,23 +340,7 @@
             
             <!-- 未选中时的概览信息 -->
             <div v-else class="overview-info">
-              <h4>图谱概览</h4>
-              <div class="type-distribution-chart">
-                <div 
-                  v-for="type in typeDistribution" 
-                  :key="type.type"
-                  class="type-bar"
-                  @click="highlightType(type.type)"
-                  @mouseover="highlightType(type.type)"
-                  @mouseout="resetTypeHighlight"
-                  :style="{
-                    width: `${(type.count / nodes.length) * 100}%`,
-                    backgroundColor: getTypeColor(type.type)
-                  }"
-                >
-                  <span class="type-bar-label">{{ type.type }} ({{ type.count }})</span>
-                </div>
-              </div>
+              <h4>图谱统计</h4>
               
               <div class="stats-overview">
                 <div class="stat-overview-item">
@@ -288,12 +351,10 @@
                   <span class="stat-label">关系总数</span>
                   <span class="stat-value">{{ edges.length }}</span>
                 </div>
-                <div class="stat-overview-item">
-                  <span class="stat-label">平均连接度</span>
-                  <span class="stat-value">
-                    {{ nodes.length > 0 ? (edges.length / nodes.length).toFixed(2) : 0 }}
-                  </span>
-                </div>
+              </div>
+              
+              <div class="focus-hint" v-if="!focusMode">
+                <p class="hint-text">选择一个节点进入聚焦模式，分析节点关联关系</p>
               </div>
             </div>
           </div>
@@ -325,11 +386,19 @@ export default {
     const dragStart = ref({ x: 0, y: 0 })
     
     // 视图控制
-    const layoutType = ref('circular') // 智能布局
     const nodeScale = ref(0.8)
     const zoom = ref(1)
     const showNodeLabels = ref(true)
+    const showEdgeLabels = ref(true)
     const highlightedType = ref(null)
+    
+    // 聚焦模式状态
+    const focusMode = ref(false)
+    const focusDepth = ref(2) // 默认深度为2（一级关联）
+    const focusNodes = ref([]) // 聚焦模式下显示的节点ID列表
+    const focusRootNodes = ref([]) // 聚焦的根节点（选中的节点）
+    const focusEdges = ref([]) // 聚焦模式下显示的边ID列表
+    const focusNodeLevels = ref({}) // 记录每个节点的层级（0:根节点，1:一级关联，2:二级关联，3:三级关联）
     
     // 画布设置
     const canvasWidth = 2000
@@ -354,28 +423,46 @@ export default {
         .sort((a, b) => b.count - a.count)
     })
     
+    // 可见节点和边（聚焦模式下只显示关联节点和边）
+    const visibleNodes = computed(() => {
+      if (!focusMode.value) return nodes.value
+      
+      // 聚焦模式下，只显示聚焦相关的节点
+      return nodes.value.filter(node => focusNodes.value.includes(node.id))
+    })
+    
+    const visibleEdges = computed(() => {
+      if (!focusMode.value) return edges.value
+      
+      // 聚焦模式下，只显示聚焦相关的边
+      // 重要：确保边只在两个节点都在可见节点中时才显示
+      return edges.value.filter(edge => {
+        // 检查边的源节点和目标节点是否都在可见节点列表中
+        const sourceVisible = focusNodes.value.includes(edge.source)
+        const targetVisible = focusNodes.value.includes(edge.target)
+        return sourceVisible && targetVisible
+      })
+    })
+    
     // 类型颜色映射
     const typeColors = {
-      // 特殊类型：tactic和technique（MITRE ATT&CK相关）
-      'Tactic': '#e74c3c',      // 鲜红色 - tactic
-      'TA': '#e74c3c',          // 鲜红色 - tactic缩写
-      'Technique': '#f39c12',   // 橙色 - technique
-      'TE': '#f39c12',          // 橙色 - technique缩写
-      'tactic': '#e74c3c',      // 小写兼容
-      'technique': '#f39c12',   // 小写兼容
-
-      // 其他类型
-      'Person': '#3498db',      // 蓝色
-      'Organization': '#2ecc71', // 绿色
-      'Location': '#9b59b6',    // 紫色
-      'Event': '#f59e0b',       // 橙黄色
-      'Concept': '#1abc9c',     // 青色
-      'Product': '#34495e',     // 深蓝灰
-      'Topic': '#8e44ad',       // 深紫色
-      'Technology': '#d35400',  // 棕色
-      'Industry': '#16a085',    // 深青色
-      'Skill': '#27ae60',       // 深绿色
-      'default': '#7f8c8d'      // 灰色
+      'Tactic': '#e74c3c',
+      'TA': '#e74c3c',
+      'Technique': '#f39c12',
+      'TE': '#f39c12',
+      'tactic': '#e74c3c',
+      'technique': '#f39c12',
+      'Person': '#3498db',
+      'Organization': '#2ecc71',
+      'Location': '#9b59b6',
+      'Event': '#f59e0b',
+      'Concept': '#1abc9c',
+      'Product': '#34495e',
+      'Topic': '#8e44ad',
+      'Technology': '#d35400',
+      'Industry': '#16a085',
+      'Skill': '#27ae60',
+      'default': '#7f8c8d'
     }
     
     // 边类型颜色映射
@@ -508,29 +595,52 @@ export default {
     const useMockData = () => {
       // 模拟数据示例
       nodes.value = [
-        { id: '1', label: '人工智能', type: 'Technology', properties: { description: '模拟的人工智能节点' } },
-        { id: '2', label: '机器学习', type: 'Concept', properties: { description: '模拟的机器学习节点' } },
-        { id: '3', label: 'Python', type: 'Technology', properties: { description: '模拟的Python节点' } },
-        { id: '4', label: 'TensorFlow', type: 'Technology', properties: { description: '模拟的TensorFlow节点' } },
-        { id: '5', label: '神经网络', type: 'Concept', properties: { description: '模拟的神经网络节点' } },
-        { id: '6', label: '数据科学', type: 'Topic', properties: { description: '模拟的数据科学节点' } },
-        { id: '7', label: '深度学习', type: 'Concept', properties: { description: '模拟的深度学习节点' } },
-        { id: '8', label: '大数据', type: 'Technology', properties: { description: '模拟的大数据节点' } },
-        { id: '9', label: '云计算', type: 'Technology', properties: { description: '模拟的云计算节点' } },
-        { id: '10', label: '张量', type: 'Concept', properties: { description: '模拟的张量节点' } }
+        { id: '1', label: '网络安全', type: 'Topic', properties: { description: '网络安全主题' } },
+        { id: '2', label: '防火墙', type: 'Technology', properties: { description: '网络安全技术' } },
+        { id: '3', label: '入侵检测', type: 'Technology', properties: { description: '入侵检测系统' } },
+        { id: '4', label: '加密技术', type: 'Technology', properties: { description: '数据加密技术' } },
+        { id: '5', label: '企业网络', type: 'Organization', properties: { description: '企业网络架构' } },
+        { id: '6', label: '云计算', type: 'Technology', properties: { description: '云平台技术' } },
+        { id: '7', label: '数据备份', type: 'Technology', properties: { description: '数据备份方案' } },
+        { id: '8', label: '访问控制', type: 'Concept', properties: { description: '访问控制机制' } },
+        { id: '9', label: '身份认证', type: 'Technology', properties: { description: '身份认证技术' } },
+        { id: '10', label: '风险评估', type: 'Concept', properties: { description: '安全风险评估' } },
+        { id: '11', label: '安全策略', type: 'Concept', properties: { description: '安全策略制定' } },
+        { id: '12', label: '漏洞扫描', type: 'Technology', properties: { description: '漏洞扫描工具' } },
+        { id: '13', label: '安全意识', type: 'Concept', properties: { description: '员工安全意识' } },
+        { id: '14', label: '合规要求', type: 'Concept', properties: { description: '法规合规要求' } },
+        { id: '15', label: '应急响应', type: 'Concept', properties: { description: '安全应急响应' } },
+        { id: '16', label: '数据加密', type: 'Technology', properties: { description: '数据加密技术' } },
+        { id: '17', label: '网络安全法', type: 'Concept', properties: { description: '网络安全法律法规' } },
+        { id: '18', label: '网络隔离', type: 'Technology', properties: { description: '网络隔离技术' } },
+        { id: '19', label: '安全审计', type: 'Concept', properties: { description: '安全审计流程' } },
+        { id: '20', label: '威胁情报', type: 'Concept', properties: { description: '威胁情报收集' } }
       ]
       
       edges.value = [
-        { id: 'e1', source: '1', target: '2', type: 'RELATES_TO', label: '包含' },
-        { id: 'e2', source: '2', target: '3', type: 'USES', label: '使用' },
-        { id: 'e3', source: '2', target: '4', type: 'USES', label: '使用' },
-        { id: 'e4', source: '2', target: '5', type: 'CONTAINS', label: '包含' },
-        { id: 'e5', source: '5', target: '7', type: 'RELATES_TO', label: '关联' },
-        { id: 'e6', source: '6', target: '2', type: 'INCLUDES', label: '包括' },
-        { id: 'e7', source: '6', target: '8', type: 'RELATES_TO', label: '关联' },
-        { id: 'e8', source: '6', target: '9', type: 'RELATES_TO', label: '关联' },
-        { id: 'e9', source: '4', target: '10', type: 'USES', label: '使用' },
-        { id: 'e10', source: '7', target: '4', type: 'IMPLEMENTS', label: '实现' }
+        { id: 'e1', source: '1', target: '2', type: 'INCLUDES', label: '包含' },
+        { id: 'e2', source: '1', target: '3', type: 'INCLUDES', label: '包含' },
+        { id: 'e3', source: '1', target: '4', type: 'INCLUDES', label: '包含' },
+        { id: 'e4', source: '2', target: '5', type: 'USED_IN', label: '应用于' },
+        { id: 'e5', source: '3', target: '5', type: 'USED_IN', label: '应用于' },
+        { id: 'e6', source: '4', target: '5', type: 'USED_IN', label: '应用于' },
+        { id: 'e7', source: '5', target: '6', type: 'RELATES_TO', label: '关联' },
+        { id: 'e8', source: '5', target: '7', type: 'RELATES_TO', label: '关联' },
+        { id: 'e9', source: '5', target: '8', type: 'HAS', label: '拥有' },
+        { id: 'e10', source: '8', target: '9', type: 'REQUIRES', label: '需要' },
+        { id: 'e11', source: '5', target: '10', type: 'PERFORMS', label: '执行' },
+        { id: 'e12', source: '10', target: '11', type: 'PRODUCES', label: '产生' },
+        { id: 'e13', source: '11', target: '12', type: 'REQUIRES', label: '需要' },
+        { id: 'e14', source: '13', target: '5', type: 'APPLIES_TO', label: '应用于' },
+        { id: 'e15', source: '14', target: '11', type: 'INFLUENCES', label: '影响' },
+        { id: 'e16', source: '15', target: '5', type: 'PROTECTS', label: '保护' },
+        { id: 'e17', source: '12', target: '16', type: 'USES', label: '使用' },
+        { id: 'e18', source: '17', target: '14', type: 'DEFINES', label: '定义' },
+        { id: 'e19', source: '18', target: '5', type: 'PROTECTS', label: '保护' },
+        { id: 'e20', source: '19', target: '10', type: 'SUPPORTS', label: '支持' },
+        { id: 'e21', source: '20', target: '3', type: 'INFORMS', label: '通知' },
+        { id: 'e22', source: '9', target: '16', type: 'USES', label: '使用' },
+        { id: 'e23', source: '7', target: '6', type: 'STORED_IN', label: '存储于' }
       ]
       
       console.log('模拟数据加载完成:', nodes.value.length, '节点,', edges.value.length, '边')
@@ -547,23 +657,20 @@ export default {
       useIntelligentLayout()
     }
 
-    // 智能布局算法 - 优化tactic-technique关系布局，减少交叉
+    // 智能布局算法
     const useIntelligentLayout = () => {
       const centerX = canvasWidth / 2
       const centerY = canvasHeight / 2
 
-      // 1. 识别tactic和technique节点
+      // 1. 识别不同类型节点
       const tacticNodes = nodes.value.filter(node => isTacticNode(node))
       const techniqueNodes = nodes.value.filter(node => isTechniqueNode(node))
       const otherNodes = nodes.value.filter(node =>
         !tacticNodes.includes(node) && !techniqueNodes.includes(node)
       )
 
-      console.log(`智能布局: ${tacticNodes.length} tactics, ${techniqueNodes.length} techniques, ${otherNodes.length} others`)
-
       // 2. 分析technique的连接关系
-      const techniqueConnections = new Map() // technique -> 连接的tactics
-
+      const techniqueConnections = new Map()
       techniqueNodes.forEach(technique => {
         const connectedTactics = []
         edges.value.forEach(edge => {
@@ -584,8 +691,8 @@ export default {
       })
 
       // 3. 分类techniques
-      const singleTacticTechniques = new Map() // tactic -> techniques（只连接一个tactic）
-      const multiTacticTechniques = [] // 连接多个tactic的techniques
+      const singleTacticTechniques = new Map()
+      const multiTacticTechniques = []
 
       techniqueConnections.forEach((tactics, technique) => {
         if (tactics.length === 1) {
@@ -599,35 +706,27 @@ export default {
         }
       })
 
-      console.log(`Technique分类: 单tactic ${Array.from(singleTacticTechniques.values()).flat().length} 个, 多tactic ${multiTacticTechniques.length} 个`)
-
       // 4. 计算布局参数
-      const tacticSpacing = 500 // 大幅增大tactic之间的距离
-      const techniqueRadius = 200 // 增大technique围绕tactic的半径
-      const otherNodeSpacing = 200 // 其他节点间距
+      const tacticSpacing = 500
+      const techniqueRadius = 200
+      const otherNodeSpacing = 200
 
-      // 5. 智能布局tactics - 让tactic靠近自己的techniques
+      // 5. 智能布局tactics
       const tacticPositions = new Map()
 
       if (tacticNodes.length === 1) {
-        // 只有一个tactic，放在中心
         const tactic = tacticNodes[0]
         const tacticX = centerX
         const tacticY = centerY
         tacticPositions.set(tactic, { x: tacticX, y: tacticY })
 
-        // 布局该tactic的单techniques
         const singleTechniques = singleTacticTechniques.get(tactic) || []
         layoutSingleTechniquesAroundTactic(singleTechniques, tacticX, tacticY)
 
       } else {
-        // 多个tactics - 使用基于邻近关系的智能布局
         const numTactics = tacticNodes.length
-
-        // 预估每个tactic的最佳位置（基于其techniques的数量和分布）
         const preliminaryPositions = new Map()
 
-        // 为每个tactic分配一个初始区域
         const regions = calculateOptimalRegions(numTactics)
 
         tacticNodes.forEach((tactic, index) => {
@@ -635,38 +734,32 @@ export default {
           const singleTechniques = singleTacticTechniques.get(tactic) || []
           const multiTechniques = multiTacticTechniques.filter(mt => mt.tactics.includes(tactic))
 
-          // 估算该tactic需要的空间
           const estimatedWidth = Math.max(400, Math.sqrt(singleTechniques.length + multiTechniques.length) * 150)
           const estimatedHeight = estimatedWidth
 
-          // 在分配的区域内选择一个合适的位置
           const tacticX = region.x + region.width * 0.5
           const tacticY = region.y + region.height * 0.5
 
           preliminaryPositions.set(tactic, { x: tacticX, y: tacticY })
         })
 
-        // 优化tactic位置 - 让它们更好地分布在画布上
         const optimizedPositions = optimizeTacticPositions(preliminaryPositions, singleTacticTechniques, multiTacticTechniques)
         optimizedPositions.forEach((pos, tactic) => {
           tacticPositions.set(tactic, pos)
         })
 
-        // 设置最终的tactic位置
         tacticPositions.forEach((pos, tactic) => {
           nodePositions.value[tactic.id] = pos
 
-          // 布局该tactic的单techniques
           const singleTechniques = singleTacticTechniques.get(tactic) || []
           layoutSingleTechniquesAroundTactic(singleTechniques, pos.x, pos.y)
         })
       }
 
-      // 6. 布局多tactic techniques - 放在相关tactics的中心位置
+      // 6. 布局多tactic techniques
       multiTacticTechniques.forEach(({ technique, tactics }) => {
         if (tactics.length === 0) return
 
-        // 计算相关tactics的中心位置
         let centerX = 0, centerY = 0
         tactics.forEach(tactic => {
           const pos = nodePositions.value[tactic.id]
@@ -678,7 +771,6 @@ export default {
         centerX /= tactics.length
         centerY /= tactics.length
 
-        // 在中心位置附近找一个合适的位置，避免与其他节点重叠
         const optimalPos = findOptimalPositionForTechnique(centerX, centerY, technique)
         nodePositions.value[technique.id] = optimalPos
       })
@@ -686,7 +778,7 @@ export default {
       // 7. 布局其他类型节点
       layoutOtherNodes(otherNodes)
 
-      // 辅助函数：计算画布的最佳区域划分
+      // 辅助函数
       function calculateOptimalRegions(numTactics) {
         const regions = []
         const cols = Math.ceil(Math.sqrt(numTactics))
@@ -714,37 +806,32 @@ export default {
         return regions
       }
 
-      // 辅助函数：优化tactic位置，让它们更好地分布
       function optimizeTacticPositions(preliminaryPositions, singleTacticTechniques, multiTacticTechniques) {
         const optimized = new Map(preliminaryPositions)
         const maxIterations = 50
-        const minDistance = 300 // tactic之间的最小距离
+        const minDistance = 300
 
         for (let iteration = 0; iteration < maxIterations; iteration++) {
           let hasMovement = false
 
-          // 为每个tactic计算吸引力（来自其techniques的拉力）
           const forces = new Map()
 
           preliminaryPositions.forEach((pos, tactic) => {
             let forceX = 0
             let forceY = 0
 
-            // 单tactic techniques的吸引力
             const singleTechniques = singleTacticTechniques.get(tactic) || []
             singleTechniques.forEach(technique => {
               if (nodePositions.value[technique.id]) {
                 const techPos = nodePositions.value[technique.id]
                 const distance = Math.sqrt(Math.pow(techPos.x - pos.x, 2) + Math.pow(techPos.y - pos.y, 2))
                 if (distance > techniqueRadius * 0.8) {
-                  // 如果technique离tactic太远，拉近一点
                   forceX += (techPos.x - pos.x) * 0.1
                   forceY += (techPos.y - pos.y) * 0.1
                 }
               }
             })
 
-            // 多tactic techniques的吸引力（较弱）
             multiTacticTechniques.forEach(({ technique, tactics }) => {
               if (tactics.includes(tactic) && nodePositions.value[technique.id]) {
                 const techPos = nodePositions.value[technique.id]
@@ -756,7 +843,6 @@ export default {
               }
             })
 
-            // 排斥力（与其他tactic的距离）
             preliminaryPositions.forEach((otherPos, otherTactic) => {
               if (otherTactic !== tactic) {
                 const distance = Math.sqrt(Math.pow(otherPos.x - pos.x, 2) + Math.pow(otherPos.y - pos.y, 2))
@@ -771,7 +857,6 @@ export default {
             forces.set(tactic, { x: forceX, y: forceY })
           })
 
-          // 应用力并更新位置
           forces.forEach((force, tactic) => {
             const currentPos = optimized.get(tactic)
             const newX = Math.max(100, Math.min(canvasWidth - 100, currentPos.x + force.x))
@@ -789,16 +874,15 @@ export default {
         return optimized
       }
 
-      // 辅助函数：布局单个tactic周围的techniques
       function layoutSingleTechniquesAroundTactic(techniques, tacticX, tacticY) {
         if (techniques.length === 0) return
 
         const totalNodes = techniques.length
-        const angleStep = (2 * Math.PI) / Math.max(totalNodes, 8) // 至少8个位置，更均匀分布
+        const angleStep = (2 * Math.PI) / Math.max(totalNodes, 8)
 
         techniques.forEach((technique, index) => {
           const angle = index * angleStep
-          const radius = techniqueRadius + (Math.floor(index / 8) * 100) // 多层分布，层间距更大
+          const radius = techniqueRadius + (Math.floor(index / 8) * 100)
           const x = tacticX + radius * Math.cos(angle)
           const y = tacticY + radius * Math.sin(angle)
 
@@ -806,20 +890,17 @@ export default {
         })
       }
 
-      // 辅助函数：为多tactic technique找最优位置
       function findOptimalPositionForTechnique(centerX, centerY, technique) {
         const candidates = []
 
-        // 生成候选位置：在中心周围的多个位置，使用更大的间距
         for (let i = 0; i < 12; i++) {
           const angle = (i / 12) * 2 * Math.PI
-          const radius = 150 + Math.floor(i / 4) * 100 // 三层半径，更大间距
+          const radius = 150 + Math.floor(i / 4) * 100
           const x = centerX + radius * Math.cos(angle)
           const y = centerY + radius * Math.sin(angle)
           candidates.push({ x, y })
         }
 
-        // 选择与现有节点重叠最少的位置
         let bestPos = candidates[0]
         let minOverlaps = Infinity
 
@@ -829,7 +910,7 @@ export default {
             const distance = Math.sqrt(
               Math.pow(pos.x - existingPos.x, 2) + Math.pow(pos.y - existingPos.y, 2)
             )
-            if (distance < 180) { // 增大节点间最小距离
+            if (distance < 180) {
               overlaps++
             }
           })
@@ -842,11 +923,9 @@ export default {
         return bestPos
       }
 
-      // 辅助函数：布局其他节点
       function layoutOtherNodes(otherNodes) {
         if (otherNodes.length === 0) return
 
-        // 将其他节点放在画布底部，网格布局，使用更大的间距
         const startX = tacticSpacing * 0.5
         const startY = canvasHeight - tacticSpacing
         const gridSpacing = otherNodeSpacing
@@ -862,7 +941,6 @@ export default {
           nodePositions.value[node.id] = { x, y }
         })
       }
-
     }
     
     // 自动布局
@@ -882,7 +960,6 @@ export default {
     // 获取节点样式
     const getNodeStyle = (node) => {
       const pos = getNodePosition(node.id)
-      // 卡片式节点尺寸调整
       const width = 140 * nodeScale.value
       const height = 60 * nodeScale.value
 
@@ -899,17 +976,32 @@ export default {
     // 获取节点提示文本
     const getNodeTooltip = (node) => {
       const connections = getNodeConnections(node.id)
-      return `${node.label || node.id}\n` +
+      let tooltip = `${node.label || node.id}\n` +
              `类型: ${node.type}\n` +
              `连接数: ${connections.length}\n` +
              `ID: ${node.id}`
+      
+      if (focusMode.value) {
+        if (focusRootNodes.value.some(n => n.id === node.id)) {
+          tooltip += '\n根节点'
+        } else if (focusNodeLevels.value[node.id]) {
+          tooltip += `\n${focusNodeLevels.value[node.id]}级关联节点`
+        }
+      }
+      
+      return tooltip
     }
     
     // 获取边透明度
     const getEdgeOpacity = (edge) => {
       let opacity = 0.6
       
-      if (selectedNode.value) {
+      if (focusMode.value) {
+        // 聚焦模式下：显示相关的边，隐藏无关的边
+        const isFocusRelated = focusEdges.value.includes(edge.id)
+        opacity = isFocusRelated ? 0.8 : 0.1
+      } else if (selectedNode.value) {
+        // 非聚焦模式下：高亮与选中节点相关的边
         const isRelated = edge.source === selectedNode.value.id || edge.target === selectedNode.value.id
         if (!isRelated) opacity = 0.2
       }
@@ -1051,6 +1143,7 @@ export default {
       hoverNode.value = null
       hoverEdge.value = null
       highlightedType.value = null
+      exitFocusMode()
     }
     
     // 清除选择
@@ -1058,6 +1151,7 @@ export default {
       selectedNode.value = null
       selectedEdge.value = null
       highlightedType.value = null
+      exitFocusMode()
     }
     
     // 高亮类型
@@ -1072,9 +1166,172 @@ export default {
       }
     }
     
-    // 监听布局类型变化
-    watch(layoutType, () => {
-      initNodePositions()
+    // ============= 聚焦模式相关函数 =============
+    
+    // 进入聚焦模式
+    const enterFocusMode = () => {
+      if (!selectedNode.value) return
+      
+      focusMode.value = true
+      focusRootNodes.value = [selectedNode.value]
+      calculateFocusElements()
+    }
+    
+    // 退出聚焦模式
+    const exitFocusMode = () => {
+      focusMode.value = false
+      focusNodes.value = []
+      focusEdges.value = []
+      focusRootNodes.value = []
+      focusNodeLevels.value = {}
+    }
+    
+    // 计算聚焦元素 - 修复边隐藏问题
+    const calculateFocusElements = () => {
+      if (!focusMode.value || focusRootNodes.value.length === 0) return
+      
+      // 重置状态
+      const visitedNodes = new Set()
+      const nodeLevels = {}
+      const relevantEdges = new Set()
+      
+      // 计算实际遍历深度：focusDepth-1
+      const maxDepth = focusDepth.value - 1
+      
+      // BFS遍历，收集指定深度内的节点
+      const queue = [...focusRootNodes.value.map(node => ({ node, depth: 0 }))]
+      
+      while (queue.length > 0) {
+        const { node, depth } = queue.shift()
+        
+        if (depth > maxDepth) continue
+        if (visitedNodes.has(node.id)) continue
+        
+        visitedNodes.add(node.id)
+        nodeLevels[node.id] = depth
+        
+        // 找到与该节点相连的边
+        const connectedEdges = edges.value.filter(edge => 
+          edge.source === node.id || edge.target === node.id
+        )
+        
+        connectedEdges.forEach(edge => {
+          // 确定相邻节点
+          const neighborId = edge.source === node.id ? edge.target : edge.source
+          const neighborNode = nodes.value.find(n => n.id === neighborId)
+          
+          // 只有当相邻节点在已访问或将要访问的集合中时，才添加这条边
+          if (neighborNode) {
+            // 添加相邻节点到队列（如果未超过深度限制）
+            if (depth < maxDepth && !visitedNodes.has(neighborId)) {
+              queue.push({ node: neighborNode, depth: depth + 1 })
+            }
+            
+            // 只有当两个节点都在可见范围内时，才添加这条边
+            // 这里我们会在遍历结束后重新计算，但先添加这条边
+            relevantEdges.add(edge.id)
+          }
+        })
+      }
+      
+      // 更新聚焦状态
+      focusNodes.value = Array.from(visitedNodes)
+      focusEdges.value = Array.from(relevantEdges)
+      focusNodeLevels.value = nodeLevels
+      
+      console.log(`聚焦模式: 深度=${focusDepth.value}, 显示节点=${focusNodes.value.length}, 显示边=${focusEdges.value.length}`)
+    }
+    
+    // 设置聚焦深度
+    const setFocusDepth = (depth) => {
+      focusDepth.value = depth
+      calculateFocusElements()
+    }
+    
+    // 获取深度标签
+    const getDepthLabel = (depth) => {
+      switch(depth) {
+        case 2: return '一级关联'
+        case 3: return '二级关联'
+        case 4: return '三级关联'
+        default: return `${depth-1}级关联`
+      }
+    }
+    
+    // 获取深度文本描述
+    const getFocusDepthText = () => {
+      return getDepthLabel(focusDepth.value)
+    }
+    
+    // 获取深度详细描述
+    const getFocusDepthDescription = () => {
+      if (focusDepth.value === 2) {
+        return '显示选中节点及其直接关联的节点'
+      } else if (focusDepth.value === 3) {
+        return '显示选中节点、直接关联节点及其关联的节点'
+      } else if (focusDepth.value === 4) {
+        return '显示选中节点、直接关联节点、二级关联节点及其关联的节点'
+      }
+      return ''
+    }
+    
+    // 获取指定层级的节点数量
+    const getLevelNodeCount = (level) => {
+      if (!focusMode.value) return 0
+      
+      return Object.values(focusNodeLevels.value).filter(l => l === level).length
+    }
+    
+    // 删除选中节点
+    const deleteSelectedNode = async () => {
+      if (!selectedNode.value) return
+      
+      if (!confirm(`确定要删除节点 "${selectedNode.value.label}" 吗？此操作将同步删除后端数据。`)) {
+        return
+      }
+      
+      try {
+        loading.value = true
+        
+        // 调用后端API删除节点
+        const response = await fetch(`/api/graph/delete_node/${selectedNode.value.id}`, {
+          method: 'DELETE'
+        })
+        
+        if (response.ok) {
+          // 从前端数据中移除节点及其关联边
+          const nodeId = selectedNode.value.id
+          
+          // 移除节点
+          nodes.value = nodes.value.filter(n => n.id !== nodeId)
+          
+          // 移除关联边
+          edges.value = edges.value.filter(e => e.source !== nodeId && e.target !== nodeId)
+          
+          // 退出聚焦模式
+          exitFocusMode()
+          selectedNode.value = null
+          
+          // 重新初始化布局
+          initNodePositions()
+          
+          console.log('节点删除成功')
+        } else {
+          throw new Error('删除失败')
+        }
+      } catch (err) {
+        console.error('删除节点失败:', err)
+        alert('删除失败，请重试')
+      } finally {
+        loading.value = false
+      }
+    }
+    
+    // 监听聚焦深度变化
+    watch(focusDepth, () => {
+      if (focusMode.value) {
+        calculateFocusElements()
+      }
     })
     
     onMounted(() => {
@@ -1097,13 +1354,23 @@ export default {
       isDragging,
       
       // 视图控制
-      layoutType,
       zoom,
       showNodeLabels,
+      showEdgeLabels,
       highlightedType,
+      
+      // 聚焦模式
+      focusMode,
+      focusDepth,
+      focusNodes,
+      focusEdges,
+      focusRootNodes,
+      focusNodeLevels,
       
       // 计算属性
       typeDistribution,
+      visibleNodes,
+      visibleEdges,
       
       // 方法
       fetchData,
@@ -1133,7 +1400,17 @@ export default {
       clearSelection,
       highlightType,
       resetTypeHighlight,
-      autoLayout
+      autoLayout,
+      
+      // 聚焦模式方法
+      enterFocusMode,
+      exitFocusMode,
+      setFocusDepth,
+      getDepthLabel,
+      getFocusDepthText,
+      getFocusDepthDescription,
+      getLevelNodeCount,
+      deleteSelectedNode
     }
   }
 }
@@ -1213,21 +1490,33 @@ export default {
   font-weight: 500;
 }
 
-.select-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #2d3748;
-  font-size: 14px;
-  transition: all 0.2s;
+/* 深度控制 */
+.depth-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.select-input:focus {
-  outline: none;
+.depth-btn {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #4a5568;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.depth-btn:hover {
+  background: #f7fafc;
+}
+
+.depth-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .control-buttons {
@@ -1369,6 +1658,15 @@ export default {
   color: #38a169;
 }
 
+.focus-indicator {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
 .btn-small {
   padding: 6px 12px;
   background: #f7fafc;
@@ -1388,6 +1686,16 @@ export default {
   background: #667eea;
   color: white;
   border-color: #667eea;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
 }
 
 .view-controls {
@@ -1452,7 +1760,7 @@ export default {
   cursor: grabbing;
 }
 
-/* 边 */
+/* 边 - 改为直线 */
 .edges-layer {
   position: absolute;
   top: 0;
@@ -1471,7 +1779,7 @@ export default {
 
 .edge-line:hover {
   opacity: 1 !important;
-  stroke-width: 4px;
+  stroke-width: 3px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
@@ -1481,10 +1789,6 @@ export default {
   font-weight: 600;
   pointer-events: none;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* 节点 */
@@ -1636,6 +1940,28 @@ export default {
   box-shadow: 0 0 12px rgba(102, 126, 234, 0.4);
 }
 
+/* 聚焦模式节点样式 */
+.knowledge-node.focus-root .node-card {
+  border-width: 3px;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2), 0 12px 40px rgba(102, 126, 234, 0.3);
+}
+
+.knowledge-node.focus-level-1 .node-card {
+  border-color: #48bb78;
+  box-shadow: 0 4px 20px rgba(72, 187, 120, 0.2);
+}
+
+.knowledge-node.focus-level-2 .node-card {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.2);
+}
+
+.knowledge-node.focus-level-3 .node-card {
+  border-color: #9b59b6;
+  box-shadow: 0 4px 20px rgba(155, 89, 182, 0.2);
+}
+
 /* 拖拽状态 */
 .knowledge-node.dragging .node-card {
   opacity: 0.9;
@@ -1708,15 +2034,65 @@ export default {
   background: #edf2f7;
 }
 
-.icon-btn.active {
-  background: #667eea;
-  color: white;
-  border-color: #667eea;
-}
-
 .panel-content {
   flex: 1;
   overflow-y: auto;
+}
+
+/* 聚焦模式信息 */
+.focus-info {
+  background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.focus-header {
+  margin-bottom: 16px;
+}
+
+.focus-title h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+.focus-description {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #718096;
+}
+
+.depth-info {
+  display: grid;
+  gap: 8px;
+}
+
+.depth-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.depth-stat .stat-label {
+  font-size: 13px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.depth-stat .stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 30px;
+  text-align: center;
 }
 
 /* 选中节点信息 */
@@ -1774,6 +2150,15 @@ export default {
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;
+  font-weight: 600;
+}
+
+.focus-tag {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -1895,7 +2280,6 @@ export default {
   min-width: 0;
 }
 
-
 .connection-target {
   font-size: 13px;
   color: #4a5568;
@@ -1903,6 +2287,12 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.connection-meta {
+  font-size: 11px;
+  color: #a0aec0;
+  margin-top: 2px;
 }
 
 .connection-type-tag {
@@ -1919,38 +2309,10 @@ export default {
   animation: fadeIn 0.3s ease;
 }
 
-.type-distribution-chart {
-  margin-bottom: 24px;
-}
-
-.type-bar {
-  height: 32px;
-  margin-bottom: 6px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-
-.type-bar:hover {
-  transform: translateX(4px);
-}
-
-.type-bar-label {
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  z-index: 1;
-}
-
 .stats-overview {
   display: grid;
   gap: 12px;
+  margin-bottom: 20px;
 }
 
 .stat-overview-item {
@@ -1972,5 +2334,20 @@ export default {
   font-size: 18px;
   font-weight: 700;
   color: #2c3e50;
+}
+
+/* 聚焦提示 */
+.focus-hint {
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.hint-text {
+  margin: 0;
+  font-size: 14px;
+  color: #718096;
 }
 </style>
