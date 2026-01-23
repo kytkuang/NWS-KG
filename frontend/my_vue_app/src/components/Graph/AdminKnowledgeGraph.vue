@@ -164,18 +164,6 @@
                   @mouseenter="hoverEdge = edge"
                   @mouseleave="hoverEdge = null"
                 />
-                
-                <!-- 边标签（可显示） -->
-                <text
-                  v-if="showEdgeLabels && edge.label && !shouldHideEdgeLabel(edge.type)"
-                  :x="(getNodePosition(edge.source).x + getNodePosition(edge.target).x) / 2"
-                  :y="(getNodePosition(edge.source).y + getNodePosition(edge.target).y) / 2"
-                  text-anchor="middle"
-                  dy="3"
-                  class="edge-label"
-                >
-                  {{ edge.label }}
-                </text>
               </g>
             </svg>
 
@@ -432,7 +420,7 @@ export default {
     const nodeScale = ref(0.8)
     const zoom = ref(1)
     const showNodeLabels = ref(true)
-    const showEdgeLabels = ref(true)
+    const showEdgeLabels = ref(false) // 设置为false，不显示边标签
     const highlightedType = ref(null)
     
     // 聚焦模式状态
@@ -1986,14 +1974,6 @@ export default {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 
-.edge-label {
-  font-size: 11px;
-  fill: #4a5568;
-  font-weight: 600;
-  pointer-events: none;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-}
-
 /* 节点样式 */
 .knowledge-node {
   position: absolute;
@@ -2442,6 +2422,7 @@ export default {
   max-height: 120px;
   overflow: hidden;
   transition: max-height 0.3s ease;
+  white-space: pre-wrap; /* 添加这一行，允许文本换行 */
 }
 
 .property-value-content.expanded {
