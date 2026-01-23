@@ -181,7 +181,7 @@ export default {
 
 /* 知识图谱页面样式 */
 .knowledge-graph-view {
-  height: calc(100vh - 180px);
+  height: calc(100vh + 180px);
   background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);

@@ -167,7 +167,7 @@
                 
                 <!-- 边标签（可显示） -->
                 <text
-                  v-if="showEdgeLabels && edge.label"
+                  v-if="showEdgeLabels && edge.label && !shouldHideEdgeLabel(edge.type)"
                   :x="(getNodePosition(edge.source).x + getNodePosition(edge.target).x) / 2"
                   :y="(getNodePosition(edge.source).y + getNodePosition(edge.target).y) / 2"
                   text-anchor="middle"
@@ -293,18 +293,61 @@
                   <div class="value">{{ selectedNode.id }}</div>
                 </div>
                 
-                <div v-if="selectedNode.properties" class="detail-section">
-                  <h5>属性信息</h5>
-                  <div class="properties-grid">
+                <!-- 改进的属性信息部分 -->
+                <div v-if="selectedNode.properties && Object.keys(selectedNode.properties).length > 0" class="detail-section">
+                  <div class="section-header">
+                    <h5>属性信息</h5>
+                    <span class="property-count">{{ Object.keys(selectedNode.properties).length }}项</span>
+                  </div>
+                  
+                  <div class="properties-container">
                     <div 
                       v-for="(value, key) in selectedNode.properties" 
                       :key="key"
-                      class="property-item"
+                      class="property-card"
+                      :data-type="getPropertyType(value)"
                     >
-                      <span class="property-key">{{ key }}</span>
-                      <span class="property-value">{{ formatPropertyValue(value) }}</span>
+                      <div class="property-header">
+                        <div class="property-icon">
+                          <span class="icon-text">{{ key.charAt(0).toUpperCase() }}</span>
+                        </div>
+                        <div class="property-title">
+                          <div class="property-name">{{ formatPropertyName(key) }}</div>
+                          <div class="property-type">{{ getPropertyType(value) }}</div>
+                        </div>
+                      </div>
+                      
+                      <div class="property-value-container">
+                        <div 
+                          class="property-value-content"
+                          :class="{ expanded: expandedProperties[key] }"
+                        >
+                          {{ formatPropertyValue(value) }}
+                        </div>
+                        <button 
+                          v-if="isLongText(value)"
+                          @click="togglePropertyExpand(key)"
+                          class="expand-btn"
+                        >
+                          {{ expandedProperties[key] ? '收起' : '展开' }}
+                        </button>
+                      </div>
                     </div>
                   </div>
+                </div>
+                
+                <!-- 空属性状态 -->
+                <div v-else-if="selectedNode" class="empty-properties">
+                  <div class="empty-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </div>
+                  <p>该节点暂无属性信息</p>
                 </div>
               </div>
               
@@ -399,6 +442,9 @@ export default {
     const focusRootNodes = ref([]) // 聚焦的根节点（选中的节点）
     const focusEdges = ref([]) // 聚焦模式下显示的边ID列表
     const focusNodeLevels = ref({}) // 记录每个节点的层级（0:根节点，1:一级关联，2:二级关联，3:三级关联）
+    
+    // 属性展开状态
+    const expandedProperties = ref({})
     
     // 画布设置
     const canvasWidth = 2000
@@ -545,6 +591,62 @@ export default {
       if (!selectedEdge.value) hoverEdge.value = null
     }
     
+    // 判断是否应该隐藏边标签
+    const shouldHideEdgeLabel = (edgeType) => {
+      // 这里可以添加您想要隐藏的其他关系类型
+      const hiddenEdgeTypes = ['BELONGS_TO', 'belongsto', 'BelongsTo']
+      return hiddenEdgeTypes.includes(edgeType)
+    }
+    
+    // 格式化属性名（将驼峰命名转为可读格式）
+    const formatPropertyName = (key) => {
+      // 将驼峰命名转换为空格分隔
+      return key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim()
+    }
+    
+    // 获取属性值类型
+    const getPropertyType = (value) => {
+      if (value === null) return 'null'
+      if (value === undefined) return 'undefined'
+      if (Array.isArray(value)) return 'array'
+      return typeof value
+    }
+    
+    // 检查是否为长文本
+    const isLongText = (value) => {
+      const str = typeof value === 'object' ? JSON.stringify(value) : String(value)
+      return str.length > 100
+    }
+    
+    // 切换属性展开状态
+    const togglePropertyExpand = (key) => {
+      expandedProperties.value[key] = !expandedProperties.value[key]
+    }
+    
+    // 改进的格式化属性值方法
+    const formatPropertyValue = (value) => {
+      if (value === null) return 'null'
+      if (value === undefined) return 'undefined'
+      
+      if (typeof value === 'object') {
+        try {
+          if (Array.isArray(value)) {
+            return `[${value.length} 个项目] ${JSON.stringify(value, null, 2)}`
+          }
+          return JSON.stringify(value, null, 2)
+        } catch {
+          return '[复杂对象]'
+        }
+      }
+      
+      // 对于字符串，如果太长则截断显示
+      const str = String(value)
+      return str
+    }
+    
     // 获取数据
     const fetchData = async () => {
       try {
@@ -595,26 +697,59 @@ export default {
     const useMockData = () => {
       // 模拟数据示例
       nodes.value = [
-        { id: '1', label: '网络安全', type: 'Topic', properties: { description: '网络安全主题' } },
-        { id: '2', label: '防火墙', type: 'Technology', properties: { description: '网络安全技术' } },
-        { id: '3', label: '入侵检测', type: 'Technology', properties: { description: '入侵检测系统' } },
-        { id: '4', label: '加密技术', type: 'Technology', properties: { description: '数据加密技术' } },
-        { id: '5', label: '企业网络', type: 'Organization', properties: { description: '企业网络架构' } },
-        { id: '6', label: '云计算', type: 'Technology', properties: { description: '云平台技术' } },
-        { id: '7', label: '数据备份', type: 'Technology', properties: { description: '数据备份方案' } },
-        { id: '8', label: '访问控制', type: 'Concept', properties: { description: '访问控制机制' } },
-        { id: '9', label: '身份认证', type: 'Technology', properties: { description: '身份认证技术' } },
-        { id: '10', label: '风险评估', type: 'Concept', properties: { description: '安全风险评估' } },
-        { id: '11', label: '安全策略', type: 'Concept', properties: { description: '安全策略制定' } },
-        { id: '12', label: '漏洞扫描', type: 'Technology', properties: { description: '漏洞扫描工具' } },
-        { id: '13', label: '安全意识', type: 'Concept', properties: { description: '员工安全意识' } },
-        { id: '14', label: '合规要求', type: 'Concept', properties: { description: '法规合规要求' } },
-        { id: '15', label: '应急响应', type: 'Concept', properties: { description: '安全应急响应' } },
-        { id: '16', label: '数据加密', type: 'Technology', properties: { description: '数据加密技术' } },
-        { id: '17', label: '网络安全法', type: 'Concept', properties: { description: '网络安全法律法规' } },
-        { id: '18', label: '网络隔离', type: 'Technology', properties: { description: '网络隔离技术' } },
-        { id: '19', label: '安全审计', type: 'Concept', properties: { description: '安全审计流程' } },
-        { id: '20', label: '威胁情报', type: 'Concept', properties: { description: '威胁情报收集' } }
+        { id: '1', label: '网络安全', type: 'Topic', properties: { 
+          description: '网络安全是保护网络基础设施和数据的实践，旨在防止攻击、破坏或未授权访问。',
+          importance: '非常高',
+          relatedTechnologies: ['防火墙', '加密技术', '入侵检测'],
+          riskLevel: 5,
+          lastUpdated: '2023-10-15',
+          compliance: true
+        } },
+        { id: '2', label: '防火墙', type: 'Technology', properties: { 
+          description: '网络安全系统，监控和控制网络流量',
+          category: '网络安全',
+          effectiveness: 4.5,
+          requiresConfiguration: true
+        } },
+        { id: '3', label: '入侵检测', type: 'Technology', properties: { 
+          description: '检测网络或系统中的恶意活动',
+          type: '主动防御',
+          deployment: '网络边界'
+        } },
+        { id: '4', label: '加密技术', type: 'Technology', properties: { 
+          description: '将信息转换为不可读格式以保护数据安全',
+          algorithm: 'AES-256',
+          keyLength: 256
+        } },
+        { id: '5', label: '企业网络', type: 'Organization', properties: { 
+          description: '企业内部的计算机网络架构',
+          size: '大型',
+          securityLevel: '高'
+        } },
+        { id: '6', label: '云计算', type: 'Technology', properties: { 
+          description: '通过互联网提供计算服务',
+          provider: '多厂商',
+          scalability: '无限'
+        } },
+        { id: '7', label: '数据备份', type: 'Technology', properties: { 
+          description: '创建数据副本以防止数据丢失',
+          frequency: '每日',
+          retention: '30天'
+        } },
+        { id: '8', label: '访问控制', type: 'Concept', properties: { 
+          description: '控制谁可以访问什么资源',
+          model: 'RBAC',
+          enforcement: '严格'
+        } },
+        { id: '9', label: '身份认证', type: 'Technology', properties: { 
+          description: '验证用户身份的技术',
+          methods: ['密码', '双因素', '生物识别']
+        } },
+        { id: '10', label: '风险评估', type: 'Concept', properties: { 
+          description: '识别和评估安全风险的过程',
+          methodology: '定性分析',
+          frequency: '季度'
+        } }
       ]
       
       edges.value = [
@@ -629,18 +764,9 @@ export default {
         { id: 'e9', source: '5', target: '8', type: 'HAS', label: '拥有' },
         { id: 'e10', source: '8', target: '9', type: 'REQUIRES', label: '需要' },
         { id: 'e11', source: '5', target: '10', type: 'PERFORMS', label: '执行' },
-        { id: 'e12', source: '10', target: '11', type: 'PRODUCES', label: '产生' },
-        { id: 'e13', source: '11', target: '12', type: 'REQUIRES', label: '需要' },
-        { id: 'e14', source: '13', target: '5', type: 'APPLIES_TO', label: '应用于' },
-        { id: 'e15', source: '14', target: '11', type: 'INFLUENCES', label: '影响' },
-        { id: 'e16', source: '15', target: '5', type: 'PROTECTS', label: '保护' },
-        { id: 'e17', source: '12', target: '16', type: 'USES', label: '使用' },
-        { id: 'e18', source: '17', target: '14', type: 'DEFINES', label: '定义' },
-        { id: 'e19', source: '18', target: '5', type: 'PROTECTS', label: '保护' },
-        { id: 'e20', source: '19', target: '10', type: 'SUPPORTS', label: '支持' },
-        { id: 'e21', source: '20', target: '3', type: 'INFORMS', label: '通知' },
-        { id: 'e22', source: '9', target: '16', type: 'USES', label: '使用' },
-        { id: 'e23', source: '7', target: '6', type: 'STORED_IN', label: '存储于' }
+        { id: 'e12', source: '10', target: '1', type: 'ANALYZES', label: '分析' },
+        { id: 'e13', source: '6', target: '7', type: 'STORED_IN', label: '存储于' },
+        { id: 'e14', source: '9', target: '2', type: 'INTEGRATES_WITH', label: '集成' }
       ]
       
       console.log('模拟数据加载完成:', nodes.value.length, '节点,', edges.value.length, '边')
@@ -1027,12 +1153,6 @@ export default {
       return text.substring(0, maxLength) + '...'
     }
     
-    // 格式化属性值
-    const formatPropertyValue = (value) => {
-      if (typeof value === 'object') return JSON.stringify(value, null, 2)
-      return String(value)
-    }
-    
     // 选择节点
     const selectNode = (node) => {
       if (draggedNode.value) return
@@ -1143,6 +1263,7 @@ export default {
       hoverNode.value = null
       hoverEdge.value = null
       highlightedType.value = null
+      expandedProperties.value = {}
       exitFocusMode()
     }
     
@@ -1151,6 +1272,7 @@ export default {
       selectedNode.value = null
       selectedEdge.value = null
       highlightedType.value = null
+      expandedProperties.value = {}
       exitFocusMode()
     }
     
@@ -1311,6 +1433,7 @@ export default {
           // 退出聚焦模式
           exitFocusMode()
           selectedNode.value = null
+          expandedProperties.value = {}
           
           // 重新初始化布局
           initNodePositions()
@@ -1367,6 +1490,9 @@ export default {
       focusRootNodes,
       focusNodeLevels,
       
+      // 属性展开状态
+      expandedProperties,
+      
       // 计算属性
       typeDistribution,
       visibleNodes,
@@ -1382,12 +1508,17 @@ export default {
       getNodeConnections,
       handleNodeMouseLeave,
       handleConnectionMouseLeave,
+      shouldHideEdgeLabel,
+      formatPropertyName,
+      getPropertyType,
+      isLongText,
+      togglePropertyExpand,
+      formatPropertyValue,
       getNodePosition,
       getNodeStyle,
       getNodeTooltip,
       getEdgeOpacity,
       truncateText,
-      formatPropertyValue,
       selectNode,
       startNodeDrag,
       startDrag,
@@ -1455,11 +1586,14 @@ export default {
   flex: 1;
   display: flex;
   overflow: hidden;
+  height: calc(100vh - 60px);
 }
 
 /* 左侧控制面板 */
 .left-panel {
   width: 280px;
+  min-width: 280px;
+  max-width: 280px;
   background: white;
   padding: 20px;
   display: flex;
@@ -1468,8 +1602,85 @@ export default {
   border-right: 1px solid #eaeaea;
   overflow-y: auto;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
+/* 中间图谱区域 */
+.center-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* 右侧详情面板 */
+.right-panel {
+  width: 350px;
+  min-width: 350px;
+  max-width: 350px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #eaeaea;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.details-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #eaeaea;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  padding: 6px 12px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #4a5568;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: #edf2f7;
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* 控制面板通用样式 */
 .control-section h3,
 .legend-section h3 {
   margin: 0 0 16px 0;
@@ -1490,7 +1701,6 @@ export default {
   font-weight: 500;
 }
 
-/* 深度控制 */
 .depth-control {
   display: flex;
   flex-direction: column;
@@ -1556,7 +1766,7 @@ export default {
   background: #edf2f7;
 }
 
-/* 图例 */
+/* 图例样式 */
 .legend-items {
   display: flex;
   flex-direction: column;
@@ -1599,14 +1809,7 @@ export default {
   font-weight: 500;
 }
 
-/* 中间图谱区域 */
-.center-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
+/* 图谱头部样式 */
 .graph-header {
   background: white;
   padding: 16px 24px;
@@ -1740,7 +1943,7 @@ export default {
   color: #718096;
 }
 
-/* 图谱画布 */
+/* 图谱容器 */
 .graph-container {
   flex: 1;
   position: relative;
@@ -1760,7 +1963,7 @@ export default {
   cursor: grabbing;
 }
 
-/* 边 - 改为直线 */
+/* 边样式 */
 .edges-layer {
   position: absolute;
   top: 0;
@@ -1791,14 +1994,13 @@ export default {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
-/* 节点 */
+/* 节点样式 */
 .knowledge-node {
   position: absolute;
   cursor: pointer;
   transition: transform 0.3s ease, z-index 0.3s ease;
 }
 
-/* 节点卡片 */
 .node-card {
   position: relative;
   width: 100%;
@@ -1813,7 +2015,6 @@ export default {
   align-items: center;
 }
 
-/* 类型指示器 */
 .node-type-indicator {
   position: absolute;
   left: 0;
@@ -1824,7 +2025,6 @@ export default {
   transition: all 0.3s ease;
 }
 
-/* 节点内容 */
 .node-content {
   flex: 1;
   padding: 8px 12px 8px 18px;
@@ -1834,7 +2034,6 @@ export default {
   min-width: 0;
 }
 
-/* 主要标签 */
 .node-main-label {
   font-size: 13px;
   font-weight: 600;
@@ -1845,7 +2044,6 @@ export default {
   text-overflow: ellipsis;
 }
 
-/* 类型标签 */
 .node-type-label {
   font-size: 10px;
   font-weight: 500;
@@ -1855,7 +2053,6 @@ export default {
   opacity: 0.8;
 }
 
-/* 装饰元素 */
 .node-decoration {
   position: absolute;
   right: 8px;
@@ -1868,7 +2065,7 @@ export default {
   opacity: 0.4;
 }
 
-/* Tactic节点特殊样式 */
+/* 节点特殊样式 */
 .knowledge-node[class*="tactic"] .node-card,
 .knowledge-node[class*="TA"] .node-card {
   border-color: #e74c3c;
@@ -1887,7 +2084,6 @@ export default {
   box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
 }
 
-/* Technique节点特殊样式 */
 .knowledge-node[class*="technique"] .node-card,
 .knowledge-node[class*="TE"] .node-card {
   border-color: #f39c12;
@@ -1906,7 +2102,7 @@ export default {
   box-shadow: 0 0 8px rgba(243, 156, 18, 0.4);
 }
 
-/* 悬停效果 */
+/* 节点状态样式 */
 .knowledge-node:hover .node-card {
   transform: translateY(-2px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -1922,7 +2118,6 @@ export default {
   transform: translateY(-50%) scale(1.2);
 }
 
-/* 选中状态 */
 .knowledge-node.selected .node-card {
   border-color: var(--type-color);
   border-width: 3px;
@@ -1962,14 +2157,13 @@ export default {
   box-shadow: 0 4px 20px rgba(155, 89, 182, 0.2);
 }
 
-/* 拖拽状态 */
+/* 拖拽和高亮状态 */
 .knowledge-node.dragging .node-card {
   opacity: 0.9;
   transform: rotate(2deg) scale(1.05);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
 }
 
-/* 高亮状态 */
 .knowledge-node.highlighted .node-card {
   border-color: var(--type-color);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
@@ -1980,71 +2174,13 @@ export default {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
 }
 
-/* 右侧详情面板 */
-.right-panel {
-  width: 320px;
-  background: white;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid #eaeaea;
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-
-.details-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eaeaea;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #2c3e50;
-}
-
-.panel-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.icon-btn {
-  padding: 6px 12px;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  color: #4a5568;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.icon-btn:hover {
-  background: #edf2f7;
-}
-
-.panel-content {
-  flex: 1;
-  overflow-y: auto;
-}
-
-/* 聚焦模式信息 */
+/* 聚焦模式信息样式 */
 .focus-info {
   background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 .focus-header {
@@ -2095,7 +2231,7 @@ export default {
   text-align: center;
 }
 
-/* 选中节点信息 */
+/* 选中节点信息样式 */
 .selected-node-info {
   animation: fadeIn 0.3s ease;
 }
@@ -2187,90 +2323,304 @@ export default {
   word-break: break-all;
 }
 
-.detail-section {
-  margin-bottom: 24px;
-}
-
-.detail-section h5 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a5568;
-}
-
-.properties-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.property-item {
+/* 属性信息部分 - 新样式 */
+.section-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border-radius: 6px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eaeaea;
 }
 
-.property-key {
-  font-size: 13px;
+.section-header h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c3e50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.property-count {
+  font-size: 12px;
+  color: #718096;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.properties-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.property-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.property-card:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.property-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.property-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.property-icon .icon-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.property-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.property-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.property-type {
+  font-size: 11px;
   color: #718096;
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
 }
 
-.property-value {
+.property-value-container {
+  position: relative;
+}
+
+.property-value-content {
   font-size: 13px;
-  color: #2d3748;
-  font-weight: 500;
-  max-width: 140px;
+  color: #4a5568;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
   word-break: break-word;
-  text-align: right;
+  max-height: 120px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
 }
 
+.property-value-content.expanded {
+  max-height: none;
+  overflow-y: auto;
+}
+
+.property-value-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.property-value-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.property-value-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.property-value-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.expand-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.expand-btn:hover {
+  background: white;
+  border-color: #cbd5e0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* 属性卡片不同状态的颜色变体 */
+.property-card[data-type="string"] .property-icon {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+}
+
+.property-card[data-type="number"] .property-icon {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+}
+
+.property-card[data-type="boolean"] .property-icon {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+}
+
+.property-card[data-type="object"] .property-icon {
+  background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
+}
+
+.property-card[data-type="array"] .property-icon {
+  background: linear-gradient(135deg, #ed64a6 0%, #d53f8c 100%);
+}
+
+/* 空属性状态 */
+.empty-properties {
+  text-align: center;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  border-radius: 12px;
+  border: 2px dashed #cbd5e0;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.empty-icon svg {
+  width: 24px;
+  height: 24px;
+  color: #a0aec0;
+}
+
+.empty-properties p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #718096;
+}
+
+/* 连接列表样式 */
 .connections-section {
   border-top: 1px solid #eaeaea;
-  padding-top: 16px;
+  padding-top: 20px;
+  margin-top: 20px;
 }
 
 .connections-section h5 {
-  margin: 0 0 12px 0;
+  margin: 0 0 16px 0;
   font-size: 14px;
-  font-weight: 600;
-  color: #4a5568;
+  font-weight: 700;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connections-section h5::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
 }
 
 .connections-list {
   max-height: 300px;
   overflow-y: auto;
+  margin-top: 8px;
 }
 
 .connection-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 8px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .connection-item:hover {
-  background: #edf2f7;
-  transform: translateX(2px);
+  border-color: #667eea;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.connection-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.connection-item:hover::before {
+  opacity: 1;
 }
 
 .connection-direction {
-  width: 24px;
-  height: 24px;
-  background: white;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #667eea;
+  color: white;
   font-weight: bold;
   flex-shrink: 0;
 }
@@ -2281,9 +2631,10 @@ export default {
 }
 
 .connection-target {
-  font-size: 13px;
-  color: #4a5568;
-  font-weight: 500;
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 600;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2291,20 +2642,25 @@ export default {
 
 .connection-meta {
   font-size: 11px;
-  color: #a0aec0;
-  margin-top: 2px;
+  color: #718096;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .connection-type-tag {
-  font-size: 11px;
-  color: #718096;
-  background: #e2e8f0;
-  padding: 2px 8px;
-  border-radius: 10px;
-  flex-shrink: 0;
+  font-size: 10px;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* 概览信息 */
+/* 概览信息样式 */
 .overview-info {
   animation: fadeIn 0.3s ease;
 }
@@ -2336,7 +2692,6 @@ export default {
   color: #2c3e50;
 }
 
-/* 聚焦提示 */
 .focus-hint {
   text-align: center;
   padding: 20px;
@@ -2349,5 +2704,72 @@ export default {
   margin: 0;
   font-size: 14px;
   color: #718096;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .left-panel {
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+  }
+  
+  .right-panel {
+    width: 320px;
+    min-width: 320px;
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  
+  .left-panel,
+  .right-panel {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-left: none;
+    border-top: 1px solid #eaeaea;
+    max-height: 300px;
+  }
+  
+  .center-panel {
+    order: 1;
+  }
+  
+  .left-panel {
+    order: 2;
+  }
+  
+  .right-panel {
+    order: 3;
+  }
+  
+  .property-card {
+    padding: 14px;
+  }
+  
+  .property-header {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+  
+  .property-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .property-name {
+    font-size: 13px;
+  }
+  
+  .property-value-content {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
 }
 </style>
