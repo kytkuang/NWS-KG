@@ -1,13 +1,6 @@
 <template>
   <div class="learn-page">
-    <header class="top-bar">
-      <h1>知识学习</h1>
-      <p>从知识图谱中探索攻击技术与战术关系。</p>
-    </header>
-
-    <main class="content">
-      <KnowledgeGraph />
-    </main>
+    <KnowledgeGraph />
   </div>
 </template>
 
@@ -24,22 +17,8 @@ export default {
 
 <style scoped>
 .learn-page {
-  min-height: 100vh;
-  background-color: #ffffff;
-  padding: 24px 16px;
-}
-
-.top-bar h1 {
-  font-size: 24px;
-  margin-bottom: 6px;
-}
-
-.top-bar p {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.content {
-  margin-top: 18px;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 </style>

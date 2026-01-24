@@ -11,6 +11,14 @@
     <div class="main-layout">
       <!-- 左侧控制面板 -->
       <div class="left-panel">
+        <!-- 节点搜索 -->
+        <div class="search-section">
+          <h3>节点搜索</h3>
+          <button @click="openSearchDialog" class="search-trigger-btn">
+            <span class="search-trigger-text">打开搜索</span>
+          </button>
+        </div>
+        
         <div class="control-section">
           <h3>视图控制</h3>
           
@@ -106,14 +114,14 @@
           </div>
           
           <div class="view-controls">
-            <!-- 删除按钮（聚焦模式下显示） -->
+            <!-- 编辑按钮（聚焦模式下显示） -->
             <button 
               v-if="focusMode && selectedNode" 
-              @click="deleteSelectedNode"
-              class="btn-small btn-danger"
-              title="删除选中节点"
+              @click="openEditDialog"
+              class="btn-small btn-primary"
+              title="编辑选中节点"
             >
-              删除节点
+              编辑节点
             </button>
             
             <div class="zoom-controls">
@@ -281,44 +289,50 @@
                   <div class="value">{{ selectedNode.id }}</div>
                 </div>
                 
-                <!-- 改进的属性信息部分 -->
+                <!-- 可配置的属性信息部分 -->
                 <div v-if="selectedNode.properties && Object.keys(selectedNode.properties).length > 0" class="detail-section">
                   <div class="section-header">
                     <h5>属性信息</h5>
-                    <span class="property-count">{{ Object.keys(selectedNode.properties).length }}项</span>
+                    <span class="property-count">{{ getVisiblePropertiesCount() }}项</span>
                   </div>
                   
-                  <div class="properties-container">
-                    <div 
-                      v-for="(value, key) in selectedNode.properties" 
-                      :key="key"
-                      class="property-card"
-                      :data-type="getPropertyType(value)"
-                    >
-                      <div class="property-header">
-                        <div class="property-icon">
-                          <span class="icon-text">{{ key.charAt(0).toUpperCase() }}</span>
+                  <!-- 按配置分组显示属性 -->
+                  <div v-for="group in getPropertyGroups()" :key="group.name" class="property-group">
+                    <div v-if="group.name" class="property-group-header">
+                      <h6>{{ group.name }}</h6>
+                    </div>
+                    <div class="properties-container">
+                      <div 
+                        v-for="property in getGroupProperties(group)" 
+                        :key="property.key"
+                        class="property-card"
+                        :data-type="getPropertyType(property.value)"
+                      >
+                        <div class="property-header">
+                          <div class="property-icon">
+                            <span class="icon-text">{{ property.key.charAt(0).toUpperCase() }}</span>
+                          </div>
+                          <div class="property-title">
+                            <div class="property-name">{{ getPropertyLabel(property.key) }}</div>
+                            <div class="property-type">{{ getPropertyType(property.value) }}</div>
+                          </div>
                         </div>
-                        <div class="property-title">
-                          <div class="property-name">{{ formatPropertyName(key) }}</div>
-                          <div class="property-type">{{ getPropertyType(value) }}</div>
+                        
+                        <div class="property-value-container">
+                          <div 
+                            class="property-value-content"
+                            :class="{ expanded: expandedProperties[property.key] }"
+                          >
+                            {{ formatPropertyValue(property.value) }}
+                          </div>
+                          <button 
+                            v-if="isLongText(property.value)"
+                            @click="togglePropertyExpand(property.key)"
+                            class="expand-btn"
+                          >
+                            {{ expandedProperties[property.key] ? '收起' : '展开' }}
+                          </button>
                         </div>
-                      </div>
-                      
-                      <div class="property-value-container">
-                        <div 
-                          class="property-value-content"
-                          :class="{ expanded: expandedProperties[key] }"
-                        >
-                          {{ formatPropertyValue(value) }}
-                        </div>
-                        <button 
-                          v-if="isLongText(value)"
-                          @click="togglePropertyExpand(key)"
-                          class="expand-btn"
-                        >
-                          {{ expandedProperties[key] ? '收起' : '展开' }}
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -392,14 +406,73 @@
         </div>
       </div>
     </div>
+
+    <!-- 搜索对话框 -->
+    <SearchDialog
+      v-if="showSearchDialog"
+      :nodes="nodes"
+      :node-positions="nodePositions"
+      :get-type-color="getTypeColor"
+      @close="closeSearchDialog"
+      @select-node="handleSearchNodeSelect"
+    />
+
+    <!-- 编辑节点对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click.self="closeEditDialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>编辑节点</h3>
+          <button @click="closeEditDialog" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>节点名称</label>
+            <input 
+              v-model="editForm.label" 
+              type="text" 
+              class="form-input"
+              placeholder="输入节点名称"
+            />
+          </div>
+          <div class="form-group">
+            <label>节点类型</label>
+            <select v-model="editForm.type" class="form-select">
+              <option v-for="type in availableNodeTypes" :key="type" :value="type">
+                {{ type }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>节点属性 (JSON格式)</label>
+            <textarea 
+              v-model="editForm.propertiesJson" 
+              class="form-textarea"
+              rows="6"
+              placeholder='{"key": "value"}'
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="deleteNode" class="btn btn-danger">删除节点</button>
+          <div class="modal-actions">
+            <button @click="closeEditDialog" class="btn btn-secondary">取消</button>
+            <button @click="saveNode" class="btn btn-primary">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, onMounted, computed, watch } from 'vue'
+import SearchDialog from './SearchDialog.vue'
 
 export default {
   name: 'KnowledgeGraph',
+  components: {
+    SearchDialog
+  },
   setup() {
     // 数据状态
     const loading = ref(false)
@@ -433,6 +506,28 @@ export default {
     
     // 属性展开状态
     const expandedProperties = ref({})
+    
+    // 编辑对话框状态
+    const showEditDialog = ref(false)
+    const editForm = ref({
+      label: '',
+      type: '',
+      propertiesJson: '{}'
+    })
+    const availableNodeTypes = ref([])
+    const availableEdgeTypes = ref([])
+    
+    // 属性显示配置
+    const propertyConfig = ref({
+      groups: [],
+      property_labels: {},
+      hidden_properties: [],
+      property_order: []
+    })
+    const dataSource = ref('default') // 当前数据源类型
+    
+    // 搜索对话框
+    const showSearchDialog = ref(false)
     
     // 画布设置
     const canvasWidth = 2000
@@ -478,7 +573,7 @@ export default {
       })
     })
     
-    // 类型颜色映射
+    // 静态类型颜色映射
     const typeColors = {
       'Tactic': '#e74c3c',
       'TA': '#e74c3c',
@@ -496,10 +591,14 @@ export default {
       'Technology': '#d35400',
       'Industry': '#16a085',
       'Skill': '#27ae60',
+      'Subtechnique': '#e67e22',
+      'Mitigation': '#16a085',
+      'Group': '#9b59b6',
+      'Software': '#3498db',
       'default': '#7f8c8d'
     }
     
-    // 边类型颜色映射
+    // 静态边类型颜色映射
     const edgeColors = {
       'RELATES_TO': '#3498db',
       'PART_OF': '#2ecc71',
@@ -509,17 +608,36 @@ export default {
       'WORKS_IN': '#1abc9c',
       'BELONGS_TO': '#34495e',
       'USES': '#d35400',
+      'SUBTECHNIQUE_OF': '#e67e22',
+      'MITIGATES': '#16a085',
+      'USED_BY': '#9b59b6',
       'default': '#95a5a6'
     }
     
     // 获取类型颜色
     const getTypeColor = (type) => {
-      return typeColors[type] || typeColors.default
+      if (!type) return typeColors['default']
+      return typeColors[type] || typeColors[type.toLowerCase()] || typeColors['default']
     }
     
     // 获取边颜色
     const getEdgeColor = (edgeType) => {
-      return edgeColors[edgeType] || edgeColors.default
+      if (!edgeType) return edgeColors['default']
+      return edgeColors[edgeType] || edgeColors['default']
+    }
+    
+    // 获取节点类型和边类型（用于编辑对话框）
+    const fetchNodeTypes = async () => {
+      try {
+        const response = await fetch('/api/graph/node_types')
+        const data = await response.json()
+        if (data.code === 200) {
+          availableNodeTypes.value = data.node_types || []
+          availableEdgeTypes.value = data.edge_types || []
+        }
+      } catch (err) {
+        console.error('获取节点类型失败:', err)
+      }
     }
     
     // 获取类型缩写
@@ -595,6 +713,147 @@ export default {
         .trim()
     }
     
+    // 获取属性显示标签（优先使用配置的标签，否则使用格式化名称）
+    const getPropertyLabel = (key) => {
+      if (propertyConfig.value.property_labels && propertyConfig.value.property_labels[key]) {
+        return propertyConfig.value.property_labels[key]
+      }
+      return formatPropertyName(key)
+    }
+    
+    // 获取属性分组配置
+    const getPropertyGroups = () => {
+      if (!selectedNode.value || !selectedNode.value.properties) return []
+      
+      const groups = propertyConfig.value.groups || []
+      if (groups.length === 0) {
+        // 如果没有配置，返回默认分组
+        return [{
+          name: '',
+          order: 1,
+          properties: []
+        }]
+      }
+      
+      // 按order排序
+      return [...groups].sort((a, b) => (a.order || 0) - (b.order || 0))
+    }
+    
+    // 获取分组中的属性
+    const getGroupProperties = (group) => {
+      if (!selectedNode.value || !selectedNode.value.properties) return []
+      
+      const allProperties = selectedNode.value.properties
+      const hiddenProps = propertyConfig.value.hidden_properties || []
+      
+      // 如果分组指定了属性列表
+      if (group.properties && group.properties.length > 0) {
+        return group.properties
+          .filter(key => allProperties.hasOwnProperty(key) && !hiddenProps.includes(key))
+          .map(key => ({
+            key,
+            value: allProperties[key]
+          }))
+      } else {
+        // 如果分组属性列表为空，显示所有其他未分组的属性
+        const groupedKeys = new Set()
+        propertyConfig.value.groups.forEach(g => {
+          if (g.properties) {
+            g.properties.forEach(k => groupedKeys.add(k))
+          }
+        })
+        
+        return Object.keys(allProperties)
+          .filter(key => !hiddenProps.includes(key) && !groupedKeys.has(key))
+          .map(key => ({
+            key,
+            value: allProperties[key]
+          }))
+      }
+    }
+    
+    // 获取可见属性数量
+    const getVisiblePropertiesCount = () => {
+      if (!selectedNode.value || !selectedNode.value.properties) return 0
+      
+      const hiddenProps = propertyConfig.value.hidden_properties || []
+      return Object.keys(selectedNode.value.properties)
+        .filter(key => !hiddenProps.includes(key))
+        .length
+    }
+    
+    // 获取属性显示配置
+    const fetchPropertyConfig = async (source = 'default') => {
+      try {
+        const response = await fetch(`/api/graph/property_config?data_source=${source}`)
+        const data = await response.json()
+        if (data.code === 200) {
+          propertyConfig.value = data.config || {
+            groups: [],
+            property_labels: {},
+            hidden_properties: [],
+            property_order: []
+          }
+          dataSource.value = data.data_source || source
+        }
+      } catch (err) {
+        console.error('获取属性配置失败:', err)
+        // 使用默认配置
+        propertyConfig.value = {
+          groups: [{
+            name: '',
+            order: 1,
+            properties: []
+          }],
+          property_labels: {},
+          hidden_properties: ['x', 'y'],
+          property_order: []
+        }
+      }
+    }
+    
+    // 自动检测数据源类型
+    const detectDataSource = () => {
+      if (!nodes.value || nodes.value.length === 0) return 'default'
+      
+      // 检查是否有ATT&CK相关的节点类型
+      const hasAttackTypes = nodes.value.some(node => 
+        ['Technique', 'Tactic', 'Subtechnique', 'Mitigation', 'Group', 'Software'].includes(node.type)
+      )
+      
+      if (hasAttackTypes) {
+        return 'attack'
+      }
+      
+      return 'default'
+    }
+    
+    // 打开搜索对话框
+    const openSearchDialog = () => {
+      showSearchDialog.value = true
+    }
+    
+    // 关闭搜索对话框
+    const closeSearchDialog = () => {
+      showSearchDialog.value = false
+    }
+    
+    // 处理搜索对话框中选择的节点
+    const handleSearchNodeSelect = (node) => {
+      // 选中节点
+      selectNode(node)
+      
+      // 定位到节点（居中显示）
+      if (nodePositions.value[node.id]) {
+        const pos = nodePositions.value[node.id]
+        const centerX = canvasWidth / 2
+        const centerY = canvasHeight / 2
+        
+        offsetX.value = centerX - pos.x
+        offsetY.value = centerY - pos.y
+      }
+    }
+    
     // 获取属性值类型
     const getPropertyType = (value) => {
       if (value === null) return 'null'
@@ -660,6 +919,10 @@ export default {
         edges.value = data.edges || []
         
         console.log('数据加载完成:', nodes.value.length, '节点,', edges.value.length, '边')
+        
+        // 检测数据源类型并加载对应的属性配置
+        const detectedSource = detectDataSource()
+        await fetchPropertyConfig(detectedSource)
         
         // 如果没有数据，使用模拟数据
         if (nodes.value.length === 0) {
@@ -1392,11 +1655,90 @@ export default {
       return Object.values(focusNodeLevels.value).filter(l => l === level).length
     }
     
-    // 删除选中节点
-    const deleteSelectedNode = async () => {
+    // 打开编辑对话框
+    const openEditDialog = () => {
       if (!selectedNode.value) return
       
-      if (!confirm(`确定要删除节点 "${selectedNode.value.label}" 吗？此操作将同步删除后端数据。`)) {
+      editForm.value = {
+        label: selectedNode.value.label || selectedNode.value.id,
+        type: selectedNode.value.type || '',
+        propertiesJson: JSON.stringify(selectedNode.value.properties || {}, null, 2)
+      }
+      showEditDialog.value = true
+    }
+    
+    // 关闭编辑对话框
+    const closeEditDialog = () => {
+      showEditDialog.value = false
+      editForm.value = {
+        label: '',
+        type: '',
+        propertiesJson: '{}'
+      }
+    }
+    
+    // 保存节点
+    const saveNode = async () => {
+      if (!selectedNode.value) return
+      
+      try {
+        loading.value = true
+        
+        // 解析属性JSON
+        let properties = {}
+        try {
+          properties = JSON.parse(editForm.value.propertiesJson || '{}')
+        } catch (e) {
+          alert('属性JSON格式错误，请检查')
+          return
+        }
+        
+        // 构建更新数据
+        const updateData = {
+          label: editForm.value.label,
+          type: editForm.value.type,
+          properties: properties
+        }
+        
+        // 调用后端API更新节点
+        const response = await fetch(`/api/graph/update_node/${selectedNode.value.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        })
+        
+        const data = await response.json()
+        
+        if (response.ok && data.code === 200) {
+          // 更新前端数据
+          const nodeIndex = nodes.value.findIndex(n => n.id === selectedNode.value.id)
+          if (nodeIndex !== -1) {
+            nodes.value[nodeIndex].label = editForm.value.label
+            nodes.value[nodeIndex].type = editForm.value.type
+            nodes.value[nodeIndex].properties = properties
+            selectedNode.value = nodes.value[nodeIndex]
+          }
+          
+          closeEditDialog()
+          alert('节点更新成功')
+        } else {
+          throw new Error(data.message || '更新失败')
+        }
+      } catch (err) {
+        console.error('更新节点失败:', err)
+        alert('更新失败: ' + err.message)
+      } finally {
+        loading.value = false
+      }
+    }
+    
+    // 删除节点
+    const deleteNode = async () => {
+      if (!selectedNode.value) return
+      
+      if (!confirm(`确定要删除节点 "${selectedNode.value.label}" 吗？此操作将同步删除后端数据，且无法恢复。`)) {
         return
       }
       
@@ -1408,7 +1750,9 @@ export default {
           method: 'DELETE'
         })
         
-        if (response.ok) {
+        const data = await response.json()
+        
+        if (response.ok && data.code === 200) {
           // 从前端数据中移除节点及其关联边
           const nodeId = selectedNode.value.id
           
@@ -1422,17 +1766,18 @@ export default {
           exitFocusMode()
           selectedNode.value = null
           expandedProperties.value = {}
+          closeEditDialog()
           
           // 重新初始化布局
           initNodePositions()
           
-          console.log('节点删除成功')
+          alert('节点删除成功')
         } else {
-          throw new Error('删除失败')
+          throw new Error(data.message || '删除失败')
         }
       } catch (err) {
         console.error('删除节点失败:', err)
-        alert('删除失败，请重试')
+        alert('删除失败: ' + err.message)
       } finally {
         loading.value = false
       }
@@ -1446,6 +1791,8 @@ export default {
     })
     
     onMounted(() => {
+      fetchNodeTypes()
+      fetchPropertyConfig() // 先加载默认配置
       fetchData()
     })
     
@@ -1529,7 +1876,21 @@ export default {
       getFocusDepthText,
       getFocusDepthDescription,
       getLevelNodeCount,
-      deleteSelectedNode
+      openEditDialog,
+      closeEditDialog,
+      saveNode,
+      deleteNode,
+      showEditDialog,
+      editForm,
+      availableNodeTypes,
+      getPropertyGroups,
+      getGroupProperties,
+      getPropertyLabel,
+      getVisiblePropertiesCount,
+      showSearchDialog,
+      openSearchDialog,
+      closeSearchDialog,
+      handleSearchNodeSelect
     }
   }
 }
@@ -1666,6 +2027,45 @@ export default {
   overflow-y: auto;
   padding: 20px;
   box-sizing: border-box;
+}
+
+/* 搜索区域样式 */
+.search-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.search-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.search-trigger-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-trigger-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.search-trigger-text {
+  font-size: 14px;
 }
 
 /* 控制面板通用样式 */
@@ -2154,6 +2554,7 @@ export default {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
 }
 
+
 /* 聚焦模式信息样式 */
 .focus-info {
   background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
@@ -2311,6 +2712,29 @@ export default {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid #eaeaea;
+}
+
+.property-group {
+  margin-bottom: 24px;
+}
+
+.property-group:last-child {
+  margin-bottom: 0;
+}
+
+.property-group-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.property-group-header h6 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .section-header h5 {
@@ -2752,5 +3176,138 @@ export default {
     font-size: 12px;
     padding: 8px 10px;
   }
+}
+
+/* 编辑对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #718096;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #f7fafc;
+  color: #2c3e50;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #2d3748;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-textarea {
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #eaeaea;
+  background: #f8fafc;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
 }
 </style>
