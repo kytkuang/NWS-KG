@@ -8,10 +8,38 @@
 </template>
 
 <script>
+import { onMounted } from 'vue'
+
+// 在 App 内部简单检查 token 是否过期并清理
+function isTokenExpired(token) {
+  if (!token) return true
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return true
+    const payload = JSON.parse(atob(parts[1]))
+    if (!payload.exp) return false
+    const expTime = payload.exp * 1000
+    return Date.now() >= expTime
+  } catch {
+    return true
+  }
+}
+
+function clearAuth() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+}
+
 export default {
   name: 'App',
   setup() {
-    // 可以在这里添加全局逻辑
+    onMounted(() => {
+      const token = localStorage.getItem('token')
+      if (token && isTokenExpired(token)) {
+        clearAuth()
+      }
+    })
+    
     return {}
   }
 }

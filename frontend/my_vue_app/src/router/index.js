@@ -11,9 +11,34 @@ import AdminProfileView from '../views/AdminProfileView.vue'
 import AdminKnowledgeView from '../views/AdminKnowledgeView.vue'
 import AdminSystemView from '../views/AdminSystemView.vue'
 
-// 简单的认证判断：检查本地是否有 token
+// 简单认证工具函数（不依赖独立 auth.js）
+function isTokenExpired(token) {
+  if (!token) return true
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return true
+    const payload = JSON.parse(atob(parts[1]))
+    if (!payload.exp) return false
+    const expTime = payload.exp * 1000
+    return Date.now() >= expTime
+  } catch {
+    return true
+  }
+}
+
+function clearAuth() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+}
+
 function isAuthenticated() {
-  return !!localStorage.getItem('token')
+  const token = localStorage.getItem('token')
+  if (!token) return false
+  if (isTokenExpired(token)) {
+    clearAuth()
+    return false
+  }
+  return true
 }
 
 // 判断是否管理员
@@ -103,6 +128,12 @@ const router = createRouter({
 
 // 全局前置守卫：处理登录态和跳转
 router.beforeEach((to, from, next) => {
+  // 检查 token 是否过期，如果过期则清除
+  const token = localStorage.getItem('token')
+  if (token && isTokenExpired(token)) {
+    clearAuth()
+  }
+  
   const authed = isAuthenticated()
 
   // 已登录用户访问登录/注册页，根据角色跳转到不同页面

@@ -7,6 +7,7 @@ from routes.auth import bp as auth_bp
 from routes.graph import bp as graph_bp
 from routes.knowledge import bp as knowledge_bp
 from routes.admin import bp as admin_bp
+from routes.learning_path import bp as learning_path_bp
 from utils.database import init_db
 
 app = Flask(__name__)
@@ -32,6 +33,7 @@ app.register_blueprint(auth_bp, url_prefix="/api")
 app.register_blueprint(graph_bp, url_prefix="/api")
 app.register_blueprint(knowledge_bp, url_prefix="/api")
 app.register_blueprint(admin_bp, url_prefix="/api")
+app.register_blueprint(learning_path_bp, url_prefix="/api")
 
 @app.route("/")
 def home():
@@ -118,6 +120,6 @@ if __name__ == "__main__":
         print("✅ 数据库表已初始化")
     
     # 启动应用
-    print(f"🚀 服务器启动: http://0.0.0.0:5005")
-    print(f"📊 API文档: http://0.0.0.0:5005/")
+    print(f"服务器启动: http://0.0.0.0:5005")
+    print(f"API文档: http://0.0.0.0:5005/")
     app.run(host="0.0.0.0", port=5005, debug=True)
