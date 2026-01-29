@@ -10,6 +10,7 @@ import AdminHomeView from '../views/AdminHomeView.vue'
 import AdminProfileView from '../views/AdminProfileView.vue'
 import AdminKnowledgeView from '../views/AdminKnowledgeView.vue'
 import AdminSystemView from '../views/AdminSystemView.vue'
+import MaterialsView from '../views/MaterialsView.vue'
 
 // 简单认证工具函数（不依赖独立 auth.js）
 function isTokenExpired(token) {
@@ -118,6 +119,12 @@ const routes = [
     name: 'AdminSystem',
     component: AdminSystemView,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/materials',
+    name: 'Materials',
+    component: MaterialsView,
+    meta: { requiresAuth: true }
   }
 ]
 

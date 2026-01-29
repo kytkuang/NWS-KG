@@ -271,7 +271,7 @@
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <button class="btn-primary" @click="startLearning">开始学习</button>
-            <button class="btn-secondary" @click="viewResources">查看资源</button>
+            <button class="btn-secondary" @click="viewMaterials">查看资料</button>
           </div>
         </div>
 
@@ -437,8 +437,14 @@ export default {
       alert(`开始学习：${this.selectedBlock.title}`)
     },
     
-    viewResources() {
-      alert(`查看资源：${this.selectedBlock.title}`)
+    viewMaterials() {
+      // 跳转到资料页面，并传递组件名称作为查询参数
+      this.$router.push({
+        name: 'Materials',
+        query: {
+          component: this.selectedNode
+        }
+      })
     }
   }
 }

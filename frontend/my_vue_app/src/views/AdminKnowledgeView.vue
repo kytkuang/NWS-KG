@@ -57,14 +57,8 @@
       </section>
 
       <!-- 添加内容页面 -->
-      <section v-else-if="activeNav === 'add-content'" class="empty-view">
-        <div class="empty-state">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"/>
-          </svg>
-          <h2>添加内容</h2>
-          <p>该功能正在开发中，敬请期待</p>
-        </div>
+      <section v-else-if="activeNav === 'add-content'" class="add-content-view">
+        <AddContentManager />
       </section>
 
       <!-- 学习统计页面 -->
@@ -85,11 +79,13 @@
 import { ref } from 'vue'
 // 导入AdminKnowledgeGraph组件
 import AdminKnowledgeGraph from '../components/Graph/AdminKnowledgeGraph.vue'
+import AddContentManager from '../components/Admin/AddContentManager.vue'
 
 export default {
   name: 'AdminKnowledgeView',
   components: {
-    AdminKnowledgeGraph
+    AdminKnowledgeGraph,
+    AddContentManager
   },
   setup() {
     const activeNav = ref('knowledge-graph') // 默认显示知识图谱页面
@@ -199,6 +195,16 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border: 1px solid #e0e0e0;
+}
+
+/* 添加内容页面样式 */
+.add-content-view {
+  height: calc(100vh - 180px);
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
 }
 
 .empty-state {

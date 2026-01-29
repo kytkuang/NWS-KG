@@ -41,6 +41,11 @@
           <h3>学习路线</h3>
           <p>系统化的学习路径规划</p>
         </section>
+
+        <section class="card learning-card" @click="goMaterials">
+          <h3>学习资料</h3>
+          <p>查看与学习路径相关的学习资料</p>
+        </section>
       </div>
     </main>
   </div>
@@ -75,6 +80,10 @@ export default {
       router.push('/learning-path')
     }
 
+    const goMaterials = () => {
+      router.push('/materials')
+    }
+
     const goBackToAdmin = () => {
       router.push('/admin')
     }
@@ -84,6 +93,7 @@ export default {
       goProfile,
       goKnowledgeGraph,
       goLearningPath,
+      goMaterials,
       goBackToAdmin
     }
   }
@@ -249,9 +259,9 @@ export default {
 
 .learning-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -356,6 +366,12 @@ export default {
   
   .learning-card {
     padding: 32px 24px;
+  }
+}
+
+@media (min-width: 769px) {
+  .learning-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
