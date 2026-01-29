@@ -1,8 +1,5 @@
 <template>
   <div class="system-manager">
-    <div class="section-header">
-      <h2>用户系统管理</h2>
-    </div>
 
     <main class="system-content">
       <!-- 用户统计卡片 -->

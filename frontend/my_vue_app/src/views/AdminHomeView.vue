@@ -80,7 +80,7 @@ export default {
   setup() {
     const router = useRouter()
     const user = ref(null)
-    const activeMenu = ref('')
+    const activeMenu = ref('system')
 
     onMounted(() => {
       const storedUser = localStorage.getItem('user')

@@ -48,10 +48,19 @@
         </nav>
       </aside>
 
-      <main class="main-content">
+      <main class="main-content" :class="{ 'full-height': activeMenu === 'knowledge-graph' }">
         <div v-if="activeMenu === ''" class="welcome-section">
           <h2>欢迎使用知识图谱学习系统</h2>
           <p>请从左侧菜单选择要使用的功能模块</p>
+        </div>
+        <div v-if="activeMenu === 'knowledge-graph'" class="knowledge-graph-wrapper">
+          <KnowledgeGraph />
+        </div>
+        <div v-if="activeMenu === 'learning-path'" class="component-wrapper">
+          <LearningPath />
+        </div>
+        <div v-if="activeMenu === 'materials'" class="component-wrapper">
+          <Materials />
         </div>
       </main>
     </div>
@@ -61,9 +70,17 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import KnowledgeGraph from '@/components/Graph/KnowledgeGraph.vue'
+import LearningPath from '@/components/User/LearningPath.vue'
+import Materials from '@/components/User/Materials.vue'
 
 export default {
   name: 'DashboardView',
+  components: {
+    KnowledgeGraph,
+    LearningPath,
+    Materials
+  },
   setup() {
     const router = useRouter()
     const user = ref(null)
@@ -78,13 +95,7 @@ export default {
 
     const navigateTo = (menu) => {
       activeMenu.value = menu
-      if (menu === 'knowledge-graph') {
-        router.push('/learn')
-      } else if (menu === 'learning-path') {
-        router.push('/learning-path')
-      } else if (menu === 'materials') {
-        router.push('/materials')
-      }
+      // 所有组件现在都直接嵌入在 DashboardView 中，不需要路由跳转
     }
 
     const goProfile = () => {
@@ -313,6 +324,45 @@ export default {
   background-color: #f5f5f5;
   display: flex;
   flex-direction: column;
+}
+
+.main-content.full-height {
+  padding: 0;
+  overflow: hidden;
+}
+
+.knowledge-graph-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.knowledge-graph-wrapper :deep(.knowledge-graph-page) {
+  height: 100%;
+  min-height: auto;
+}
+
+.knowledge-graph-wrapper :deep(.main-layout) {
+  height: 100%;
+  flex: 1;
+}
+
+.component-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.component-wrapper :deep(.learning-path-page),
+.component-wrapper :deep(.materials-page) {
+  min-height: auto;
+  height: 100%;
+  padding: 0;
+  background: transparent;
 }
 
 .welcome-section {

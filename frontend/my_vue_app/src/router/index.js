@@ -1,12 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import DashboardView from '../views/DashboardView.vue'
-import LearnView from '../views/LearnView.vue'
 import ProfileView from '../views/ProfileView.vue'
-import LearningPathView from '../views/LearningPathView.vue'
 import AdminHomeView from '../views/AdminHomeView.vue'
 import AdminProfileView from '../views/AdminProfileView.vue'
-import MaterialsView from '../views/MaterialsView.vue'
 
 // 简单认证工具函数（不依赖独立 auth.js）
 function isTokenExpired(token) {
@@ -64,21 +61,9 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/learn',
-    name: 'Learn',
-    component: LearnView,
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/profile',
     name: 'Profile',
     component: ProfileView,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/learning-path',
-    name: 'LearningPath',
-    component: LearningPathView,
     meta: { requiresAuth: true }
   },
   {
@@ -92,12 +77,6 @@ const routes = [
     name: 'AdminProfile',
     component: AdminProfileView,
     meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/materials',
-    name: 'Materials',
-    component: MaterialsView,
-    meta: { requiresAuth: true }
   }
 ]
 

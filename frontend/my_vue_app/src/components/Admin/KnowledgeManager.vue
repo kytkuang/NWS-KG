@@ -1,8 +1,5 @@
 <template>
   <div class="knowledge-manager">
-    <div class="section-header">
-      <h2>学习管理</h2>
-    </div>
 
     <!-- 顶部导航栏 -->
     <nav class="top-nav">
