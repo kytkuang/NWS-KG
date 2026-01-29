@@ -2,14 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import LearnView from '../views/LearnView.vue'
-import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import LearningPathView from '../views/LearningPathView.vue'
 import AdminHomeView from '../views/AdminHomeView.vue'
 import AdminProfileView from '../views/AdminProfileView.vue'
-import AdminKnowledgeView from '../views/AdminKnowledgeView.vue'
-import AdminSystemView from '../views/AdminSystemView.vue'
 import MaterialsView from '../views/MaterialsView.vue'
 
 // 简单认证工具函数（不依赖独立 auth.js）
@@ -58,18 +54,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: HomeView
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: LoginView,
-    meta: { guestOnly: true }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: RegisterView,
+    component: HomeView,
     meta: { guestOnly: true }
   },
   {
@@ -109,18 +94,6 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
-    path: '/admin/knowledge',
-    name: 'AdminKnowledge',
-    component: AdminKnowledgeView,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/admin/system',
-    name: 'AdminSystem',
-    component: AdminSystemView,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
     path: '/materials',
     name: 'Materials',
     component: MaterialsView,
@@ -148,10 +121,10 @@ router.beforeEach((to, from, next) => {
     return next(isAdmin() ? { name: 'AdminHome' } : { name: 'Dashboard' })
   }
 
-  // 访问需要登录的页面但未登录，跳转到登录页
+  // 访问需要登录的页面但未登录，跳转到首页
   if (to.meta.requiresAuth && !authed) {
     return next({
-      name: 'Login',
+      name: 'Home',
       query: { redirect: to.fullPath }
     })
   }

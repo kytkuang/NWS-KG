@@ -1,53 +1,60 @@
 <template>
   <div class="dashboard-page">
-    <header class="hero-section">
-      <div class="hero-content">
-        <h1 class="hero-title">欢迎使用知识图谱学习系统</h1>
-        <p class="hero-subtitle">探索知识网络，提升学习效率，发现更多学习乐趣</p>
-        <div class="hero-stats">
-          <div class="stat-item">
-            <span class="stat-number">{{ user?.study_hours || 0 }}</span>
-            <span class="stat-label">学习时长</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-number">{{ user?.completed_tasks || 0 }}</span>
-            <span class="stat-label">完成任务</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-number">{{ user?.study_streak || 0 }}</span>
-            <span class="stat-label">连续学习</span>
-          </div>
-        </div>
+    <header class="top-bar">
+      <div class="left">
+        <h1>欢迎使用知识图谱学习系统</h1>
       </div>
-      <div class="hero-actions">
+      <div class="right">
         <button v-if="user?.is_admin" class="btn primary" @click="goBackToAdmin">返回管理员中心</button>
         <button class="btn ghost" @click="goProfile">个人中心</button>
       </div>
     </header>
 
-    <main class="content">
-      <div class="content-header">
-        <h2>学习入口</h2>
-        <p>选择您想要探索的学习方式</p>
-      </div>
+    <div class="dashboard-layout">
+      <aside class="sidebar">
+        <nav class="sidebar-nav">
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'knowledge-graph' }"
+            @click="navigateTo('knowledge-graph')"
+          >
+            <div class="nav-dot nav-dot-blue"></div>
+            <div class="nav-content">
+              <div class="nav-title">知识图谱</div>
+            </div>
+          </div>
 
-      <div class="learning-cards-grid">
-        <section class="card learning-card" @click="goKnowledgeGraph">
-          <h3>知识图谱</h3>
-          <p>探索知识网络，深入理解概念关系</p>
-        </section>
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'learning-path' }"
+            @click="navigateTo('learning-path')"
+          >
+            <div class="nav-dot nav-dot-green"></div>
+            <div class="nav-content">
+              <div class="nav-title">学习路线</div>
+            </div>
+          </div>
 
-        <section class="card learning-card" @click="goLearningPath">
-          <h3>学习路线</h3>
-          <p>系统化的学习路径规划</p>
-        </section>
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'materials' }"
+            @click="navigateTo('materials')"
+          >
+            <div class="nav-dot nav-dot-purple"></div>
+            <div class="nav-content">
+              <div class="nav-title">学习资料</div>
+            </div>
+          </div>
+        </nav>
+      </aside>
 
-        <section class="card learning-card" @click="goMaterials">
-          <h3>学习资料</h3>
-          <p>查看与学习路径相关的学习资料</p>
-        </section>
-      </div>
-    </main>
+      <main class="main-content">
+        <div v-if="activeMenu === ''" class="welcome-section">
+          <h2>欢迎使用知识图谱学习系统</h2>
+          <p>请从左侧菜单选择要使用的功能模块</p>
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -60,6 +67,7 @@ export default {
   setup() {
     const router = useRouter()
     const user = ref(null)
+    const activeMenu = ref('')
 
     onMounted(() => {
       const storedUser = localStorage.getItem('user')
@@ -68,20 +76,19 @@ export default {
       }
     })
 
+    const navigateTo = (menu) => {
+      activeMenu.value = menu
+      if (menu === 'knowledge-graph') {
+        router.push('/learn')
+      } else if (menu === 'learning-path') {
+        router.push('/learning-path')
+      } else if (menu === 'materials') {
+        router.push('/materials')
+      }
+    }
+
     const goProfile = () => {
       router.push('/profile')
-    }
-
-    const goKnowledgeGraph = () => {
-      router.push('/learn')
-    }
-
-    const goLearningPath = () => {
-      router.push('/learning-path')
-    }
-
-    const goMaterials = () => {
-      router.push('/materials')
     }
 
     const goBackToAdmin = () => {
@@ -90,10 +97,9 @@ export default {
 
     return {
       user,
+      activeMenu,
+      navigateTo,
       goProfile,
-      goKnowledgeGraph,
-      goLearningPath,
-      goMaterials,
       goBackToAdmin
     }
   }
@@ -103,295 +109,271 @@ export default {
 <style scoped>
 .dashboard-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  padding: 0;
-}
-
-.hero-section {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  padding: 80px 24px 60px;
-  color: #1e40af;
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid #93c5fd;
-}
-
-.hero-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="1.5" fill="rgba(255,255,255,0.15)"/><circle cx="80" cy="80" r="1.5" fill="rgba(255,255,255,0.15)"/><circle cx="60" cy="30" r="1" fill="rgba(255,255,255,0.15)"/></svg>');
-  opacity: 0.4;
-}
-
-.hero-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  text-align: center;
-  position: relative;
-  z-index: 1;
-}
-
-.hero-title {
-  font-size: 42px;
-  font-weight: 800;
-  margin-bottom: 16px;
-  line-height: 1.2;
-  color: #1e40af;
-  letter-spacing: -0.5px;
-}
-
-.hero-subtitle {
-  font-size: 18px;
-  color: #3730a3;
-  margin-bottom: 48px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.6;
-  opacity: 0.9;
-}
-
-.hero-stats {
+  background-color: #f5f5f5;
   display: flex;
-  justify-content: center;
-  gap: 48px;
-  margin-bottom: 48px;
+  flex-direction: column;
 }
 
-.stat-item {
-  text-align: center;
-  padding: 0 16px;
-}
-
-.stat-number {
-  display: block;
-  font-size: 36px;
-  font-weight: 800;
-  margin-bottom: 6px;
-  color: #1e40af;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #3730a3;
-  font-weight: 500;
-  opacity: 0.8;
-}
-
-.hero-actions {
+.top-bar {
   display: flex;
-  justify-content: center;
-  gap: 16px;
-  position: relative;
-  z-index: 2;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.top-bar h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: #111827;
+}
+
+.right {
+  display: flex;
+  gap: 12px;
 }
 
 .btn {
-  padding: 12px 24px;
-  border-radius: 10px;
+  padding: 8px 16px;
+  border-radius: 6px;
   font-size: 14px;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  font-weight: 500;
 }
 
 .btn.primary {
   background-color: #2563eb;
-  color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  color: #ffffff;
 }
 
 .btn.primary:hover {
   background-color: #1d4ed8;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn.ghost {
-  background-color: rgba(255, 255, 255, 0.95);
-  color: #2563eb;
-  border: 2px solid #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+  background-color: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
 }
 
 .btn.ghost:hover {
-  background-color: #2563eb;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+  background-color: #f9fafb;
+  transform: translateY(-1px);
 }
 
-.content {
-  max-width: 1200px;
-  margin: -40px auto 60px;
-  padding: 60px 24px;
-  background: white;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.08);
-  position: relative;
-  z-index: 2;
-}
-
-.content-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.content-header h2 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 12px;
-  letter-spacing: -0.5px;
-}
-
-.content-header p {
-  font-size: 16px;
-  color: #6b7280;
-  opacity: 0.9;
-}
-
-.learning-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.learning-card {
-  text-align: center;
-  padding: 40px 32px;
-  cursor: pointer;
-  background: white;
-  color: #1e40af;
-  border-radius: 16px;
-  border: 2px solid #dbeafe;
-  transition: all 0.3s ease;
-  position: relative;
+.dashboard-layout {
+  display: flex;
+  flex: 1;
   overflow: hidden;
 }
 
-.learning-card::before {
+.sidebar {
+  width: 100px;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 20px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+  border-radius: 12px 0 0 12px;
+  border-left: 4px solid transparent;
+  background: linear-gradient(to right, #ffffff 0%, #f8fafc 100%);
+  min-height: 90px;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+  position: relative;
+  gap: 8px;
+}
+
+.nav-item::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid #f8fafc;
+  transition: all 0.3s ease;
 }
 
-.learning-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.2);
-  border-color: #3b82f6;
+.nav-item:hover {
+  border-left-color: #3b82f6;
+  background: linear-gradient(to right, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 2px 0 6px rgba(59, 130, 246, 0.15);
 }
 
-.learning-card:hover::before {
-  opacity: 0.05;
+.nav-item:hover::before {
+  border-left-color: #dbeafe;
 }
 
-.card-icon {
-  font-size: 48px;
-  margin-bottom: 20px;
-  opacity: 0.9;
+.nav-item.active {
+  border-left-color: #2563eb;
+  background: linear-gradient(to right, #dbeafe 0%, #bfdbfe 100%);
+  box-shadow: 2px 0 8px rgba(59, 130, 246, 0.25);
 }
 
-.learning-card h3 {
-  font-size: 22px;
-  margin-bottom: 16px;
-  color: #1e40af;
+.nav-item.active::before {
+  border-left-color: #bfdbfe;
+}
+
+.nav-item.active .nav-title {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* 实心圆点样式 */
+.nav-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.nav-dot-blue {
+  background-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.nav-item.active .nav-dot-blue {
+  background-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-dot-green {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.nav-item.active .nav-dot-green {
+  background-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-dot-purple {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.nav-item.active .nav-dot-purple {
+  background-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-content {
+  width: 100%;
+  text-align: center;
+}
+
+.nav-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+  white-space: normal;
+  line-height: 1.4;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-section {
+  text-align: center;
+  padding: 60px 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.welcome-section h2 {
+  font-size: 28px;
   font-weight: 700;
-  position: relative;
-  z-index: 1;
+  color: #111827;
+  margin-bottom: 12px;
 }
 
-.learning-card p {
-  font-size: 15px;
-  color: #3730a3;
-  line-height: 1.6;
-  margin: 0;
-  position: relative;
-  z-index: 1;
-  opacity: 0.9;
+.welcome-section p {
+  font-size: 16px;
+  color: #6b7280;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
-  .hero-section {
-    padding: 60px 20px 40px;
-  }
-  
-  .hero-title {
-    font-size: 32px;
-  }
-  
-  .hero-subtitle {
-    font-size: 16px;
-    margin-bottom: 32px;
-  }
-  
-  .hero-stats {
-    gap: 32px;
-    margin-bottom: 32px;
-  }
-  
-  .stat-number {
-    font-size: 28px;
-  }
-  
-  .content {
-    margin: -20px auto 40px;
-    padding: 40px 20px;
-    border-radius: 20px 20px 0 0;
-  }
-  
-  .content-header h2 {
-    font-size: 26px;
-  }
-  
-  .learning-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  
-  .learning-card {
-    padding: 32px 24px;
-  }
-}
-
-@media (min-width: 769px) {
-  .learning-cards-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-stats {
+  .dashboard-layout {
     flex-direction: column;
-    gap: 24px;
   }
-  
-  .stat-item {
-    padding: 8px 0;
+
+  .sidebar {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 0;
   }
-  
-  .hero-actions {
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 12px;
+  }
+
+  .nav-item {
+    min-width: 100px;
+    flex-shrink: 0;
+    min-height: 90px;
+  }
+
+  .nav-item::before {
+    display: none;
+  }
+
+  .top-bar {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
   }
-  
-  .btn {
-    width: 200px;
+
+  .right {
+    align-self: stretch;
+    justify-content: flex-end;
   }
 }
 </style>

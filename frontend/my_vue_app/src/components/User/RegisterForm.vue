@@ -1,56 +1,54 @@
 <template>
-  <div class="auth-page">
-    <div class="auth-card">
-      <h1 class="auth-title">注册</h1>
-      <p class="auth-subtitle">创建一个新账号，开始使用知识图谱学习平台</p>
+  <div class="auth-card">
+    <h1 class="auth-title">注册</h1>
+    <p class="auth-subtitle">创建一个新账号，开始使用知识图谱学习平台</p>
 
-      <form @submit.prevent="handleRegister">
-        <div class="form-group">
-          <label for="username">用户名</label>
-          <input
-            id="username"
-            v-model.trim="form.username"
-            type="text"
-            placeholder="3-20 位字母、数字或下划线"
-            required
-          />
-        </div>
+    <form @submit.prevent="handleRegister">
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input
+          id="username"
+          v-model.trim="form.username"
+          type="text"
+          placeholder="3-20 位字母、数字或下划线"
+          required
+        />
+      </div>
 
-        <div class="form-group">
-          <label for="email">邮箱</label>
-          <input
-            id="email"
-            v-model.trim="form.email"
-            type="email"
-            placeholder="请输入常用邮箱"
-            required
-          />
-        </div>
+      <div class="form-group">
+        <label for="email">邮箱</label>
+        <input
+          id="email"
+          v-model.trim="form.email"
+          type="email"
+          placeholder="请输入常用邮箱"
+          required
+        />
+      </div>
 
-        <div class="form-group">
-          <label for="password">密码</label>
-          <input
-            id="password"
-            v-model="form.password"
-            type="password"
-            placeholder="至少 6 位密码"
-            required
-          />
-        </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input
+          id="password"
+          v-model="form.password"
+          type="password"
+          placeholder="至少 6 位密码"
+          required
+        />
+      </div>
 
-        <p v-if="error" class="error-text">{{ error }}</p>
-        <p v-if="success" class="success-text">{{ success }}</p>
+      <p v-if="error" class="error-text">{{ error }}</p>
+      <p v-if="success" class="success-text">{{ success }}</p>
 
-        <button class="btn primary" type="submit" :disabled="loading">
-          {{ loading ? '注册中...' : '注册' }}
-        </button>
-      </form>
+      <button class="btn primary" type="submit" :disabled="loading">
+        {{ loading ? '注册中...' : '注册' }}
+      </button>
+    </form>
 
-      <p class="switch-text">
-        已有账号？
-        <router-link to="/login">去登录</router-link>
-      </p>
-    </div>
+    <p class="switch-text">
+      已有账号？
+      <a href="#" @click.prevent="$emit('switch-to-login')">去登录</a>
+    </p>
   </div>
 </template>
 
@@ -62,7 +60,8 @@ import { useRouter } from 'vue-router'
 const API_BASE_URL = 'http://localhost:5005/api'
 
 export default {
-  name: 'RegisterView',
+  name: 'RegisterForm',
+  emits: ['switch-to-login'],
   setup() {
     const router = useRouter()
 
@@ -132,15 +131,6 @@ export default {
 </script>
 
 <style scoped>
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #ffffff;
-  padding: 20px;
-}
-
 .auth-card {
   width: 100%;
   max-width: 460px;
@@ -183,6 +173,7 @@ input {
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 input:focus {

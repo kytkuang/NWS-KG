@@ -3,7 +3,6 @@
     <header class="top-bar">
       <div class="left">
         <h1>个人中心</h1>
-        <p>管理您的账户信息和学习进度</p>
       </div>
       <div class="right">
         <button class="btn ghost" @click="goBack">返回</button>
@@ -109,7 +108,7 @@ export default {
     const logout = () => {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      router.replace('/login')
+      router.replace('/')
     }
 
     const goBack = () => {

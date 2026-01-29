@@ -3,7 +3,6 @@
     <header class="top-bar">
       <div class="left">
         <h1>管理员中心</h1>
-        <p>管理系统功能和用户体验</p>
       </div>
       <div class="right">
         <button class="btn ghost" @click="goProfile">个人中心</button>
@@ -11,49 +10,77 @@
       </div>
     </header>
 
-    <main class="content">
-      <section class="card admin-card" @click="goSystemConsole">
-        <h3>用户系统管理</h3>
-        <p>管理系统用户、查看统计数据和用户权限</p>
-        <div class="card-features">
-          <span class="feature-tag">用户管理</span>
-          <span class="feature-tag">数据统计</span>
-          <span class="feature-tag">权限控制</span>
-        </div>
-      </section>
+    <div class="admin-layout">
+      <aside class="sidebar">
+        <nav class="sidebar-nav">
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'system' }"
+            @click="navigateTo('system')"
+          >
+            <div class="nav-dot nav-dot-blue"></div>
+            <div class="nav-content">
+              <div class="nav-title">用户系统管理</div>
+            </div>
+          </div>
 
-      <section class="card admin-card" @click="goKnowledgeManagement">
-        <h3>学习管理</h3>
-        <p>管理知识库、课程内容和学习资源</p>
-        <div class="card-features">
-          <span class="feature-tag">知识图谱</span>
-          <span class="feature-tag">内容管理</span>
-          <span class="feature-tag">学习统计</span>
-        </div>
-      </section>
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'knowledge' }"
+            @click="navigateTo('knowledge')"
+          >
+            <div class="nav-dot nav-dot-green"></div>
+            <div class="nav-content">
+              <div class="nav-title">学习管理</div>
+            </div>
+          </div>
 
-      <section class="card admin-card" @click="goUserFunctionTest">
-        <h3>用户功能测试</h3>
-        <p>体验普通用户功能，进行功能测试和调试</p>
-        <div class="card-features">
-          <span class="feature-tag">学习界面</span>
-          <span class="feature-tag">个人中心</span>
-          <span class="feature-tag">功能测试</span>
+          <div 
+            class="nav-item" 
+            :class="{ active: activeMenu === 'test' }"
+            @click="navigateTo('test')"
+          >
+            <div class="nav-dot nav-dot-purple"></div>
+            <div class="nav-content">
+              <div class="nav-title">用户功能测试</div>
+            </div>
+          </div>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <div v-if="activeMenu === ''" class="welcome-section">
+          <h2>欢迎使用管理员中心</h2>
+          <p>请从左侧菜单选择要管理的功能模块</p>
         </div>
-      </section>
-    </main>
+        <SystemManager v-else-if="activeMenu === 'system'" />
+        <KnowledgeManager v-else-if="activeMenu === 'knowledge'" />
+        <div v-else-if="activeMenu === 'test'" class="test-section">
+          <h2>用户功能测试</h2>
+          <p>此功能将跳转到用户端界面进行测试</p>
+          <button class="btn primary" @click="goToDashboard">前往用户端</button>
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import SystemManager from '@/components/Admin/SystemManager.vue'
+import KnowledgeManager from '@/components/Admin/KnowledgeManager.vue'
 
 export default {
   name: 'AdminHomeView',
+  components: {
+    SystemManager,
+    KnowledgeManager
+  },
   setup() {
     const router = useRouter()
     const user = ref(null)
+    const activeMenu = ref('')
 
     onMounted(() => {
       const storedUser = localStorage.getItem('user')
@@ -65,32 +92,28 @@ export default {
     const logout = () => {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      router.replace('/login')
+      router.replace('/')
     }
 
     const goProfile = () => {
       router.push('/admin/profile')
     }
 
-    const goSystemConsole = () => {
-      router.push('/admin/system')
+    const navigateTo = (menu) => {
+      activeMenu.value = menu
     }
 
-    const goKnowledgeManagement = () => {
-      router.push('/admin/knowledge')
-    }
-
-    const goUserFunctionTest = () => {
+    const goToDashboard = () => {
       router.push('/dashboard')
     }
 
     return {
       user,
+      activeMenu,
       logout,
       goProfile,
-      goSystemConsole,
-      goKnowledgeManagement,
-      goUserFunctionTest
+      navigateTo,
+      goToDashboard
     }
   }
 }
@@ -99,29 +122,26 @@ export default {
 <style scoped>
 .admin-home-page {
   min-height: 100vh;
-  background-color: #ffffff;
-  padding: 24px 16px;
+  background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  padding-bottom: 16px;
+  padding: 20px 24px;
+  background-color: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .top-bar h1 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin: 0;
   color: #111827;
-}
-
-.top-bar p {
-  font-size: 14px;
-  color: #6b7280;
 }
 
 .right {
@@ -131,7 +151,7 @@ export default {
 
 .btn {
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 14px;
   border: none;
   cursor: pointer;
@@ -152,7 +172,7 @@ export default {
 
 .btn.danger {
   background-color: #dc2626;
-  color: #f9fafb;
+  color: #ffffff;
 }
 
 .btn.danger:hover {
@@ -160,112 +180,241 @@ export default {
   transform: translateY(-1px);
 }
 
-.content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+.btn.primary {
+  background-color: #007bff;
+  color: #ffffff;
 }
 
-.card {
-  background-color: #ffffff;
-  border-radius: 12px;
-  padding: 32px 24px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-  border: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-  text-align: center;
+.btn.primary:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  border-color: #e0e0e0;
-}
-
-.admin-card {
-  background: white;
-  color: #1e40af;
-  border: 2px solid #dbeafe;
-  position: relative;
+.admin-layout {
+  display: flex;
+  flex: 1;
   overflow: hidden;
 }
 
-.admin-card::before {
+.sidebar {
+  width: 100px;
+  background-color: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 20px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 8px;
+  border-radius: 12px 0 0 12px;
+  border-left: 4px solid transparent;
+  background: linear-gradient(to right, #ffffff 0%, #f8fafc 100%);
+  min-height: 90px;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+  position: relative;
+  gap: 8px;
+}
+
+.nav-item::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid #f8fafc;
+  transition: all 0.3s ease;
 }
 
-.admin-card:hover::before {
-  opacity: 1;
+.nav-item:hover {
+  border-left-color: #3b82f6;
+  background: linear-gradient(to right, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 2px 0 6px rgba(59, 130, 246, 0.15);
 }
 
-.admin-card:nth-child(2)::before {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%);
+.nav-item:hover::before {
+  border-left-color: #dbeafe;
 }
 
-.admin-card:nth-child(3)::before {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 50%, #10b981 100%);
+.nav-item.active {
+  border-left-color: #2563eb;
+  background: linear-gradient(to right, #dbeafe 0%, #bfdbfe 100%);
+  box-shadow: 2px 0 8px rgba(59, 130, 246, 0.25);
 }
 
-
-.card h3 {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: #1e40af;
-  position: relative;
-  z-index: 1;
+.nav-item.active::before {
+  border-left-color: #bfdbfe;
 }
 
-.card p {
-  font-size: 15px;
-  color: #3730a3;
-  line-height: 1.5;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.card-features {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.feature-tag {
-  background: #dbeafe;
+.nav-item.active .nav-title {
   color: #2563eb;
-  padding: 4px 12px;
-  border-radius: 16px;
+  font-weight: 600;
+}
+
+/* 实心圆点样式 */
+.nav-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.nav-dot-blue {
+  background-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.nav-item.active .nav-dot-blue {
+  background-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-dot-green {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.nav-item.active .nav-dot-green {
+  background-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-dot-purple {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+.nav-item.active .nav-dot-purple {
+  background-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
+  transform: scale(1.2);
+}
+
+.nav-content {
+  width: 100%;
+  text-align: center;
+}
+
+.nav-title {
   font-size: 12px;
   font-weight: 500;
-  border: 1px solid #bfdbfe;
+  color: #111827;
+  white-space: normal;
+  line-height: 1.4;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left 0.3s ease;
+}
+
+.welcome-section {
+  text-align: center;
+  padding: 60px 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.welcome-section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.welcome-section p {
+  font-size: 16px;
+  color: #6b7280;
+}
+
+.test-section {
+  text-align: center;
+  padding: 60px 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.test-section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.test-section p {
+  font-size: 16px;
+  color: #6b7280;
+  margin-bottom: 24px;
 }
 
 @media (max-width: 768px) {
-  .content {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 0;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 12px;
+  }
+
+  .nav-item {
+    min-width: 100px;
+    flex-shrink: 0;
+    min-height: 90px;
+  }
+
+  .nav-item::before {
+    display: none;
   }
 
   .top-bar {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+    padding: 16px;
   }
 
   .right {

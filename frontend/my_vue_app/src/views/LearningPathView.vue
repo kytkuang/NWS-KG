@@ -3,7 +3,6 @@
     <header class="top-bar">
       <div class="left">
         <h1>学习路径规划</h1>
-        <p class="subtitle">个性化学习路线，助您高效掌握知识</p>
       </div>
       <div class="right">
         <button class="btn btn-primary" @click="showGenerateDialog = true">

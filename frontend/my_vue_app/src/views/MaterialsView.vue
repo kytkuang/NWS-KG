@@ -3,7 +3,6 @@
     <header class="top-bar">
       <div class="left">
         <h1>学习资料</h1>
-        <p class="subtitle">查看与学习路径相关的学习资料</p>
       </div>
       <div class="right" v-if="isAdmin">
         <button class="btn btn-primary" @click="showUploadDialog = true">

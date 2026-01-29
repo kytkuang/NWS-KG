@@ -1,44 +1,42 @@
 <template>
-  <div class="auth-page">
-    <div class="auth-card">
-      <h1 class="auth-title">登录</h1>
-      <p class="auth-subtitle">欢迎回来，请输入账号信息</p>
+  <div class="auth-card">
+    <h1 class="auth-title">登录</h1>
+    <p class="auth-subtitle">欢迎回来，请输入账号信息</p>
 
-      <form @submit.prevent="handleLogin">
-        <div class="form-group">
-          <label for="username">用户名或邮箱</label>
-          <input
-            id="username"
-            v-model.trim="form.username"
-            type="text"
-            placeholder="请输入用户名或邮箱"
-            required
-          />
-        </div>
+    <form @submit.prevent="handleLogin">
+      <div class="form-group">
+        <label for="username">用户名或邮箱</label>
+        <input
+          id="username"
+          v-model.trim="form.username"
+          type="text"
+          placeholder="请输入用户名或邮箱"
+          required
+        />
+      </div>
 
-        <div class="form-group">
-          <label for="password">密码</label>
-          <input
-            id="password"
-            v-model="form.password"
-            type="password"
-            placeholder="请输入密码"
-            required
-          />
-        </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input
+          id="password"
+          v-model="form.password"
+          type="password"
+          placeholder="请输入密码"
+          required
+        />
+      </div>
 
-        <p v-if="error" class="error-text">{{ error }}</p>
+      <p v-if="error" class="error-text">{{ error }}</p>
 
-        <button class="btn primary" type="submit" :disabled="loading">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-      </form>
+      <button class="btn primary" type="submit" :disabled="loading">
+        {{ loading ? '登录中...' : '登录' }}
+      </button>
+    </form>
 
-      <p class="switch-text">
-        还没有账号？
-        <router-link to="/register">去注册</router-link>
-      </p>
-    </div>
+    <p class="switch-text">
+      还没有账号？
+      <a href="#" @click.prevent="$emit('switch-to-register')">去注册</a>
+    </p>
   </div>
 </template>
 
@@ -50,7 +48,8 @@ import { useRouter, useRoute } from 'vue-router'
 const API_BASE_URL = 'http://localhost:5005/api'
 
 export default {
-  name: 'LoginView',
+  name: 'LoginForm',
+  emits: ['switch-to-register'],
   setup() {
     const router = useRouter()
     const route = useRoute()
@@ -119,15 +118,6 @@ export default {
 </script>
 
 <style scoped>
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #ffffff;
-  padding: 20px;
-}
-
 .auth-card {
   width: 100%;
   max-width: 420px;
@@ -170,6 +160,7 @@ input {
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 input:focus {

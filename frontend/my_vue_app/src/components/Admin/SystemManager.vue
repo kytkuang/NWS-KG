@@ -1,16 +1,8 @@
 <template>
-  <div class="admin-system-page">
-    <header class="page-header">
-      <div class="header-left">
-        <h1>系统管理</h1>
-        <p>管理用户账号、权限设置和系统配置</p>
-      </div>
-      <div class="header-right">
-        <button class="btn secondary" @click="goBack">
-          返回管理员控制台
-        </button>
-      </div>
-    </header>
+  <div class="system-manager">
+    <div class="section-header">
+      <h2>用户系统管理</h2>
+    </div>
 
     <main class="system-content">
       <!-- 用户统计卡片 -->
@@ -46,8 +38,8 @@
 
       <!-- 用户管理 -->
       <section class="users-section">
-        <div class="section-header">
-          <h2>用户管理</h2>
+        <div class="section-header-inner">
+          <h3>用户管理</h3>
           <button class="btn primary" @click="openCreateUserModal">
             创建用户
           </button>
@@ -243,24 +235,19 @@
         </form>
       </div>
     </div>
-
   </div>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 
 export default {
-  name: 'AdminSystemView',
+  name: 'SystemManager',
   setup() {
-    const router = useRouter()
-
     // 数据状态
     const users = ref([])
     const loading = ref(false)
     const saving = ref(false)
-    const resetting = ref(false)
 
     // 统计数据
     const stats = ref({
@@ -424,7 +411,7 @@ export default {
 
         const payload = { ...userForm.value }
         if (isEditing.value && !resetPasswordFlag.value) {
-          delete payload.password // 编辑时不重置密码则删除密码字段
+          delete payload.password
         }
 
         const response = await fetch(url, {
@@ -438,6 +425,7 @@ export default {
           alert(isEditing.value ? '用户更新成功' : '用户创建成功')
           closeUserModal()
           loadUsers()
+          loadStats()
         } else {
           alert('保存失败：' + data.message)
         }
@@ -448,7 +436,6 @@ export default {
         saving.value = false
       }
     }
-
 
     const deleteUser = async (user) => {
       if (!confirm(`确定要永久删除用户"${user.username}"吗？\n\n此操作不可恢复！`)) {
@@ -465,17 +452,14 @@ export default {
         if (data.success) {
           alert('用户已被永久删除')
           loadUsers()
+          loadStats()
         } else {
-          alert('停用用户失败：' + data.message)
+          alert('删除用户失败：' + data.message)
         }
       } catch (error) {
-        console.error('停用用户失败:', error)
-        alert('停用用户失败')
+        console.error('删除用户失败:', error)
+        alert('删除用户失败')
       }
-    }
-
-    const goBack = () => {
-      router.push('/admin')
     }
 
     const formatDate = (dateString) => {
@@ -490,30 +474,19 @@ export default {
     })
 
     return {
-      // 数据
       users,
       stats,
       loading,
       saving,
-      resetting,
-
-      // 搜索和筛选
       searchQuery,
       statusFilter,
       roleFilter,
-
-      // 分页
       currentPage,
       totalPages,
-
-      // 模态框
       showUserModal,
       isEditing,
-      selectedUser,
       userForm,
       resetPasswordFlag,
-
-      // 方法
       debouncedSearch,
       loadUsers,
       searchUsers,
@@ -523,7 +496,6 @@ export default {
       closeUserModal,
       saveUser,
       deleteUser,
-      goBack,
       formatDate
     }
   }
@@ -531,33 +503,85 @@ export default {
 </script>
 
 <style scoped>
-.admin-system-page {
-  min-height: 100vh;
-  background-color: #f8fafc;
-  padding: 20px;
+.system-manager {
+  width: 100%;
+  height: 100%;
 }
 
-.page-header {
-  background: white;
-  border-radius: 12px;
-  padding: 24px 32px;
+.section-header {
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.system-content {
+  width: 100%;
+}
+
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 12px;
+  padding: 24px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: #3b82f6;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.users-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.section-header-inner {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 24px;
 }
 
-.header-left h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  font-weight: 700;
-  color: #1a202c;
-}
-
-.header-left p {
+.section-header-inner h3 {
   margin: 0;
-  color: #718096;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
 }
 
 .btn {
@@ -574,48 +598,22 @@ export default {
 }
 
 .btn.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-color: #007bff;
   color: white;
 }
 
 .btn.primary:hover {
+  background-color: #0056b3;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .btn.secondary {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: #e5e7eb;
+  color: #374151;
 }
 
 .btn.secondary:hover {
-  background: #cbd5e0;
-}
-
-.system-content {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.users-section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.section-header h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #1a202c;
+  background: #d1d5db;
 }
 
 .filters-bar {
@@ -633,24 +631,31 @@ export default {
 
 .search-box input {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 6px 0 0 6px;
   font-size: 14px;
+  outline: none;
 }
 
 .search-box input:focus {
-  outline: none;
-  border-color: #667eea;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .search-btn {
-  padding: 8px 12px;
-  background: #667eea;
+  padding: 10px 16px;
+  background: #007bff;
   color: white;
   border: none;
   border-radius: 0 6px 6px 0;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.search-btn:hover {
+  background: #0056b3;
 }
 
 .filter-selects {
@@ -659,15 +664,23 @@ export default {
 }
 
 .filter-selects select {
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
   background: white;
+  outline: none;
+  cursor: pointer;
+}
+
+.filter-selects select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .users-table-container {
   margin-bottom: 24px;
+  overflow-x: auto;
 }
 
 .users-table {
@@ -680,18 +693,18 @@ export default {
 .users-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .users-table th {
-  background: #f8fafc;
+  background: #f9fafb;
   font-weight: 600;
-  color: #4a5568;
+  color: #374151;
 }
 
 .role-badge,
 .status-badge {
-  padding: 4px 8px;
+  padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
@@ -718,32 +731,31 @@ export default {
 }
 
 .action-btn {
-  padding: 6px 8px;
+  padding: 6px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s ease;
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .action-btn.edit:hover {
   background: #dbeafe;
+  color: #2563eb;
 }
 
-.action-btn.delete:hover:not(:disabled) {
+.action-btn.delete:hover {
   background: #fee2e2;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  color: #dc2626;
 }
 
 .empty-state,
 .loading-state {
   text-align: center;
   padding: 48px;
-  color: #718096;
+  color: #6b7280;
 }
 
 .pagination {
@@ -756,7 +768,7 @@ export default {
 
 .page-btn {
   padding: 8px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d1d5db;
   background: white;
   border-radius: 6px;
   cursor: pointer;
@@ -765,7 +777,8 @@ export default {
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #f9fafb;
+  border-color: #007bff;
 }
 
 .page-btn:disabled {
@@ -774,7 +787,7 @@ export default {
 }
 
 .page-info {
-  color: #718096;
+  color: #6b7280;
   font-size: 14px;
 }
 
@@ -801,22 +814,19 @@ export default {
   overflow-y: auto;
 }
 
-.modal-content.small {
-  max-width: 400px;
-}
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: #111827;
 }
 
 .close-btn {
@@ -824,7 +834,17 @@ export default {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #718096;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #111827;
 }
 
 .user-form {
@@ -839,23 +859,25 @@ export default {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #4a5568;
+  color: #374151;
+  font-size: 14px;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
 .form-group input[type="checkbox"] {
@@ -869,8 +891,8 @@ export default {
 }
 
 .form-group input:disabled {
-  background: #f8fafc;
-  color: #718096;
+  background: #f9fafb;
+  color: #6b7280;
 }
 
 .form-actions {
@@ -880,16 +902,9 @@ export default {
   margin-top: 24px;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
-  .admin-system-page {
-    padding: 16px;
-  }
-
-  .page-header {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
+  .stats-section {
+    grid-template-columns: 1fr;
   }
 
   .filters-bar {
@@ -912,49 +927,5 @@ export default {
     width: 95%;
     margin: 16px;
   }
-}
-
-/* 统计卡片区域 */
-.stats-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.stat-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 16px;
-  padding: 24px 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  cursor: pointer;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: #667eea;
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-number {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1a202c;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
 }
 </style>
